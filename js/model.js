@@ -4,7 +4,7 @@ export class PageModel {
   snapshot() { return {pages:this.pages.map(p=>({...p})), documentIds:[...this.documentIds], selected:[...this.selected], active:this.active, anchor:this.anchor}; }
   restore(s) {this.pages=s.pages.map(p=>({...p})); this.documentIds=[...s.documentIds]; this.selected=new Set(s.selected); this.active=s.active; this.anchor=s.anchor;}
   change(fn) {const before=this.snapshot(); fn(); if(JSON.stringify(before)===JSON.stringify(this.snapshot()))return; this.past.push(before); if(this.past.length>100)this.past.shift(); this.future=[];}
-  add(pages, replace=false) {this.change(()=>{this.documentIds=[...new Set([...(replace?[]:this.documentIds),...pages.map(p=>p.sourceId)])];this.pages=replace ? pages : [...this.pages,...pages]; this.selected=new Set(pages.length?[pages[0].id]:[]);this.active=pages[0]?.id??null;this.anchor=this.active;});}
+  add(pages, replace=false, includePages=true) {this.change(()=>{this.documentIds=[...new Set([...(replace?[]:this.documentIds),...pages.map(p=>p.sourceId)])];const added=includePages?pages:[];this.pages=replace ? added : [...this.pages,...added]; this.selected=new Set(added.length?[added[0].id]:[]);this.active=added[0]?.id??null;this.anchor=this.active;});}
   select(id,{toggle=false,range=false}={}) {
     if(range && this.anchor && this.pages.some(p=>p.id===this.anchor)) {
       const a=this.pages.findIndex(p=>p.id===this.anchor), b=this.pages.findIndex(p=>p.id===id);
@@ -16,6 +16,9 @@ export class PageModel {
   rotate(delta) {this.change(()=>{this.pages=this.pages.map(p=>this.selected.has(p.id)?{...p,rotation:normalizeRotation(p.rotation+delta)}:p);});}
   move(ids,beforeId=null) {this.change(()=>{const set=new Set(ids);if(set.has(beforeId))return;const moving=this.pages.filter(p=>set.has(p.id));const rest=this.pages.filter(p=>!set.has(p.id));const index=beforeId===null?rest.length:rest.findIndex(p=>p.id===beforeId);if(index<0)return;rest.splice(index,0,...moving);this.pages=rest;});}
   undo(){if(!this.past.length)return;this.future.push(this.snapshot());this.restore(this.past.pop());}
+  addImage(pageId,image) {this.change(()=>{this.pages=this.pages.map(page=>page.id===pageId?{...page,images:[...(page.images||[]),image]}:page);});}
+  updateImage(pageId,imageId,changes) {this.change(()=>{this.pages=this.pages.map(page=>page.id===pageId?{...page,images:(page.images||[]).map(image=>image.id===imageId?{...image,...changes}:image)}:page);});}
+  removeImage(pageId,imageId) {this.change(()=>{this.pages=this.pages.map(page=>page.id===pageId?{...page,images:(page.images||[]).filter(image=>image.id!==imageId)}:page);});}
   paste(refs) {
     if (!refs.length) return;
     this.change(() => {

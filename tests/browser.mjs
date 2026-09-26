@@ -59,6 +59,18 @@ assert.deepEqual(await page.locator('.badge').allTextContents(),['↻ 90°','↻
 await page.keyboard.press('Control+v');assert.equal(await page.locator('.page').count(),6);
 assert.equal(await page.locator('.page').evaluateAll(cards=>new Set(cards.map(c=>c.dataset.id)).size),6);
 await page.locator('#jump').focus();await page.keyboard.press('Control+v');assert.equal(await page.locator('.page').count(),6);
+
+await page.locator('#open').click();await page.locator('#file').setInputFiles(['tests/output/A.pdf','tests/output/B.pdf']);
+await page.waitForFunction(()=>!document.querySelector('#open').disabled);
+assert.equal(await page.locator('.page').count(),0);assert.ok(await page.locator('#save').isDisabled());
+assert.deepEqual(await page.getByRole('tab').allTextContents(),['編集結果 (0)','A.pdf (3)','B.pdf (2)']);
+assert.match(await page.locator('#preview').textContent(),/編集結果は空/);assert.equal(await page.locator('#preview canvas').count(),0);
+await page.locator('#undo').click();assert.equal(await page.locator('.page').count(),6);await page.locator('#redo').click();assert.equal(await page.locator('.page').count(),0);
+await page.getByRole('tab',{name:'B.pdf (2)',exact:true}).click();assert.equal(await page.locator('.page').count(),2);
+await page.locator('.page').nth(1).click();await page.keyboard.press('Control+c');
+await page.getByRole('tab',{name:'編集結果 (0)',exact:true}).click();await page.keyboard.press('Control+v');
+assert.equal(await page.locator('.page').count(),1);assert.equal(await page.locator('.origin').textContent(),'B.pdf · 2');
+await page.keyboard.press('Control+z');assert.equal(await page.locator('.page').count(),0);
 assert.deepEqual(errors,[]);console.log('PASS: load, thumbnails, drag reorder, multi-select, rotate, delete, merge, undo/redo, export order/text/rotation, file drop, 103-page list, failed import rollback; no console errors');
 }finally{await browser.close();}
 

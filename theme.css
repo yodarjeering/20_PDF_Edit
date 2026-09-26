@@ -1,0 +1,113 @@
+/* Shared theme tokens. PDF canvases keep the document's original colors. */
+:root {
+  color-scheme: dark;
+  --bg: #10141d;
+  --surface: #171e2a;
+  --raised: #202a39;
+  --border: #303d50;
+  --text: #e1e8f2;
+  --muted: #9caec3;
+  --accent: #70dfc0;
+  --selected: #203d3b;
+  --dots: #283142;
+  --status-bg: #172d2c;
+  --error-bg: #3b222c;
+  --error-text: #ffb2a8;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef2f7;
+  --surface: #fafcfe;
+  --raised: #e5ebf2;
+  --border: #cbd5e1;
+  --text: #243449;
+  --muted: #576b83;
+  --accent: #146f5e;
+  --selected: #d9eee7;
+  --dots: #cfd8e4;
+  --status-bg: #e0eee8;
+  --error-bg: #fff0ed;
+  --error-text: #a83127;
+}
+:root, body { background: var(--bg); color: var(--text); }
+header, nav, aside, .preview-heading, footer, .document-heading {
+  background: var(--surface); border-color: var(--border);
+}
+header { flex-shrink: 0; }
+.header-actions { display: flex; gap: 20px; align-items: center; }
+#theme-toggle { font-size: 12px; }
+.brand, .privacy { color: var(--accent); }
+.brand span, .empty h2 { color: var(--text); }
+.brand small, .help, .origin, .thumb, #selection, footer, #end,
+.empty, .empty span, .document-heading span { color: var(--muted); }
+button, .jump input { color: var(--text); background: var(--raised); border-color: var(--border); }
+button:hover:not(:disabled) { background: var(--selected); border-color: var(--accent); }
+button:disabled { opacity: .4; }
+button:focus-visible, [tabindex]:focus-visible { outline-color: var(--accent); }
+nav i { background: var(--border); }
+.primary { background: #57c5a6; border-color: #57c5a6; color: #092a24; font-weight: 700; }
+.primary:hover:not(:disabled) { background: #7cddbf; color: #092a24; }
+.page { background: var(--raised); }
+.page.selected { background: var(--selected); border-color: var(--accent); }
+.page.active { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); }
+.page.drop-before { border-top-color: #86b9ff; }
+h1 span, .badge { color: var(--accent); background: var(--status-bg); }
+#end { border-color: var(--border); }
+#end.over { background: var(--selected); }
+#preview { background-color: var(--bg); background-image: radial-gradient(var(--dots) .7px, transparent .7px); }
+#preview canvas { box-shadow: 0 12px 40px #0005; }
+.pdf-icon { color: var(--accent); background: var(--raised); border-color: var(--border); }
+#status { color: var(--accent); background: var(--status-bg); }
+#status.error { color: var(--error-text); background: var(--error-bg); }
+body.file-over #preview { outline-color: var(--accent); }
+* { scrollbar-color: var(--border) var(--bg); }
+
+/* Color belongs to a document identity and remains stable across tab switches. */
+#document-tabs { background: var(--bg); border-color: var(--border); padding: 12px 20px; gap: 9px; }
+#document-tabs button { --tab-color: #70dfc0; flex-shrink: 0; border: 1px solid color-mix(in srgb, var(--tab-color) 25%, var(--border)); border-radius: 9px; background: color-mix(in srgb, var(--tab-color) 7%, var(--surface)); color: var(--tab-color); padding: 10px 15px; }
+#document-tabs button::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--tab-color); margin-right: 9px; vertical-align: 1px; }
+#document-tabs button[data-color="0"] { --tab-color: #96baff; }
+#document-tabs button[data-color="1"] { --tab-color: #c4a5ff; }
+#document-tabs button[data-color="2"] { --tab-color: #f6ba79; }
+#document-tabs button[data-color="3"] { --tab-color: #f49ebc; }
+#document-tabs button[data-color="4"] { --tab-color: #79d8e9; }
+#document-tabs button[data-color="5"] { --tab-color: #bdcf82; }
+[data-theme="light"] #document-tabs button { --tab-color: #146f5e; }
+[data-theme="light"] #document-tabs button[data-color="0"] { --tab-color: #295ca8; }
+[data-theme="light"] #document-tabs button[data-color="1"] { --tab-color: #7547ad; }
+[data-theme="light"] #document-tabs button[data-color="2"] { --tab-color: #965517; }
+[data-theme="light"] #document-tabs button[data-color="3"] { --tab-color: #a03865; }
+[data-theme="light"] #document-tabs button[data-color="4"] { --tab-color: #176b7b; }
+[data-theme="light"] #document-tabs button[data-color="5"] { --tab-color: #576b21; }
+#document-tabs button:hover { background: color-mix(in srgb, var(--tab-color) 14%, var(--surface)); border-color: var(--tab-color); }
+#document-tabs button[aria-selected="true"] { background: color-mix(in srgb, var(--tab-color) 18%, var(--surface)); color: var(--tab-color); border-color: var(--tab-color); box-shadow: inset 0 -3px var(--tab-color), 0 3px 12px #0002; font-weight: 700; }
+
+.image-toolbar{display:flex;align-items:center;gap:8px;padding:9px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.image-toolbar button,.image-toolbar select{font:inherit;font-size:12px;padding:6px 10px}
+.image-toolbar span{font-size:11px;color:var(--muted);flex:1}
+.image-toolbar label{font-size:12px;color:var(--muted)}
+.image-toolbar select{border:1px solid var(--border);border-radius:6px;background:var(--raised);color:var(--text)}
+#preview{display:block}
+.page-stage{position:relative;isolation:isolate;flex-shrink:0;margin:auto;overflow:hidden;background:white}
+.page-stage canvas{display:block}
+.image-object{position:absolute;left:0;top:0;transform-origin:0 0;cursor:move;touch-action:none;outline:1px solid transparent}
+.image-object img{display:block;width:100%;height:100%;pointer-events:none;user-select:none}
+.image-object.image-selected{outline:2px solid #258aff}
+.image-resize{display:none;position:absolute;width:12px;height:12px;right:0;bottom:0;background:#258aff;border:2px solid white;cursor:nwse-resize}
+.image-selected .image-resize{display:block}
+#preview>.empty{margin:60px auto;max-width:520px}
+
+.shape-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:12px}
+.shape-toolbar button,.shape-toolbar select{font:inherit;padding:5px 8px;background:var(--raised);color:var(--text);border:1px solid var(--border);border-radius:6px}
+.shape-toolbar label{display:flex;align-items:center;gap:3px;color:var(--muted)}
+.shape-toolbar input[type=color]{width:28px;height:27px;padding:1px;border:1px solid var(--border);background:var(--raised);border-radius:5px}
+.image-object svg{display:block;width:100%;height:100%;pointer-events:none;overflow:visible}
+
+.shape-picker{display:flex;gap:5px}.shape-toolbar .shape-pictogram{padding:5px;width:38px;height:36px;display:grid;place-items:center}.shape-pictogram svg{width:26px;height:26px}.shape-toolbar .shape-pictogram[aria-pressed=true]{color:var(--accent);border-color:var(--accent);background:var(--selected)}
+#shape-kind[hidden]{display:none}#shape-width-custom{width:64px}
+.text-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:12px}
+.text-toolbar label{color:var(--muted);white-space:nowrap}.text-toolbar button,.text-toolbar select{padding:6px 9px;font-size:12px}
+.text-toolbar textarea{resize:vertical;min-height:36px;max-height:120px;flex:1;min-width:140px;padding:5px 8px;font:inherit}
+.text-toolbar input[type=number]{width:60px}.text-toolbar input[type=color]{width:30px;height:28px;padding:1px}
+.text-toolbar textarea,.text-toolbar input,.text-toolbar select,#shape-width-custom{background:var(--raised);color:var(--text);border:1px solid var(--border);border-radius:5px}
+.text-object:not(.image-selected){outline:1px dashed #6b85a077}

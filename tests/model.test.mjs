@@ -2,6 +2,20 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PageModel} from '../js/model.js';
 const pages=['a','b','c','d','e'].map((id,i)=>({id,sourceId:i<3?'A':'B',sourcePage:i<3?i+1:i-2,rotation:0}));
+test('image edits preserve history and are independent on copied pages',()=>{
+ const m=new PageModel();m.add(pages.slice(0,1));
+ m.addImage('a',{id:'image',data:'data:image/png;base64,fixture',x:10,y:20,width:100,height:50});
+ m.paste([m.pages[0]]);const copy=m.active;
+ m.updateImage(copy,'image',{x:40,width:200});assert.equal(m.pages[0].images[0].x,10);assert.equal(m.pages[1].images[0].x,40);
+ m.undo();assert.equal(m.pages[1].images[0].x,10);m.redo();assert.equal(m.pages[1].images[0].width,200);
+ m.removeImage(copy,'image');assert.equal(m.pages[1].images.length,0);assert.equal(m.pages[0].images.length,1);m.undo();assert.equal(m.pages[1].images.length,1);
+});
+test('opening sources without output pages retains tabs and supports undo and paste',()=>{
+ const m=new PageModel();m.add(pages.slice(0,3));m.add(pages,true,false);
+ assert.equal(m.pages.length,0);assert.deepEqual(m.documentIds,['A','B']);assert.equal(m.active,null);assert.equal(m.selected.size,0);
+ m.undo();assert.equal(m.pages.length,3);assert.deepEqual(m.documentIds,['A']);m.redo();assert.equal(m.pages.length,0);
+ m.paste([pages[4]]);assert.equal(m.pages[0].sourceId,'B');m.undo();assert.equal(m.pages.length,0);assert.deepEqual(m.documentIds,['A','B']);
+});
 test('paste preserves origin and rotation, generates unique IDs and supports history',()=>{
  const m=new PageModel();m.add(pages.slice(0,3));m.select('a');m.select('c',{toggle:true});
  const clipboard=[{...pages[3],rotation:270},{...pages[0]}];m.paste(clipboard);
