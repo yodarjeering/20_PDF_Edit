@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>PDF Studio — ページ編集</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header><div class="brand">P<span>PDF Studio</span><small>ローカル・ページエディター</small></div><span class="privacy">● PDFはこのブラウザ内で処理されます</span></header>
+<nav aria-label="編集ツール"><button id="open">PDFを開く</button><button id="add">＋ PDF追加</button><i></i><button id="delete">削除</button><button id="left">↶ 左90°</button><button id="right">↷ 右90°</button><i></i><button id="undo">Undo</button><button id="redo">Redo</button><button id="save" class="primary">↓ PDF保存</button></nav>
+<input id="file" type="file" accept="application/pdf,.pdf" multiple hidden>
+<div id="document-tabs" role="tablist" aria-label="読み込んだPDF"></div>
+<div class="document-heading"><strong id="document-name">編集結果</strong><span id="view-description"></span></div>
+<main id="workspace" role="tabpanel"><aside><div class="panel-heading"><h1>ページ一覧 <span id="count">0</span></h1><button id="all">全選択</button></div><div class="help">Ctrl / ⌘＋クリックで複数選択<br>Shift＋クリックで範囲選択 · ドラッグで移動<br>Ctrl / ⌘＋C コピー · X 切り取り · V 貼り付け</div><div class="jump"><label for="jump">ページへ移動</label><input id="jump" type="number" min="1" value="1"><button id="go">移動</button></div><div id="pages" role="listbox" aria-label="PDFページ" aria-multiselectable="true"></div><div id="end" tabindex="0">ここへドロップして末尾に移動</div></aside>
+<section class="preview-panel"><div class="preview-heading"><strong id="preview-title">プレビュー</strong><span id="selection">未選択</span></div><div id="preview"><div class="empty"><div class="pdf-icon">PDF</div><h2>ページを整えて、ひとつのPDFに。</h2><p>PDFをここへドラッグ＆ドロップ<br>または「PDFを開く」から選択してください。</p><span>並び替え / 結合 / 削除 / 回転</span></div></div><footer><span id="source-label">元ファイルを変更せず、新しいPDFとして保存します。</span><span>表示：ページ全体</span></footer></section></main>
+<div id="status" role="status" aria-live="polite">準備完了</div><script src="vendor/pdf-lib/pdf-lib.min.js"></script><script type="module" src="js/app.js"></script></body></html>
+
