@@ -1,2 +1,3 @@
 tests/output/
 node_modules/
+vendor/fontkit/package.tgz

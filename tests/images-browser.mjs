@@ -102,6 +102,12 @@ try {
     if(!point)throw Error('No text pixels');const b=el.getBoundingClientRect(),s=el.parentElement.getBoundingClientRect();return{x:(b.x-s.x+b.width*point.x/c.width)/s.width,y:(b.y-s.y+b.height*point.y/c.height)/s.height};
   });
   const textDownload=page.waitForEvent('download');await page.locator('#save').click();await(await textDownload).saveAs('tests/output/text-edited.pdf');
+  const extracted=await page.evaluate(async()=>{
+    const {getDocument}=await import('/vendor/pdfjs/build/pdf.mjs');const pdf=await getDocument('/tests/output/text-edited.pdf').promise;
+    return (await(await pdf.getPage(1)).getTextContent()).items.map(item=>item.str).join('');
+  });
+  assert.ok(extracted.includes('日本語の文字'),'Japanese text is searchable/selectable');
+  assert.ok(extracted.includes('編集したテキスト'),'edited text is exported as Unicode text');
   const textPixel=await page.evaluate(async sample=>{const {getDocument}=await import('/vendor/pdfjs/build/pdf.mjs');const pdf=await getDocument('/tests/output/text-edited.pdf').promise,p=await pdf.getPage(1),v=p.getViewport({scale:3}),c=document.createElement('canvas');c.width=v.width;c.height=v.height;const ctx=c.getContext('2d');await p.render({canvasContext:ctx,viewport:v}).promise;return [...ctx.getImageData(Math.round(sample.x*v.width),Math.round(sample.y*v.height),1,1).data];},sampleText);
   assert.ok(Math.abs(textPixel[0]-116)<20&&Math.abs(textPixel[1]-49)<20&&Math.abs(textPixel[2]-181)<20,'Japanese text placement/color preserved in PDF');
   await page.screenshot({path:'tests/output/text-editor.png'});

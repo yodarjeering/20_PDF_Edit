@@ -1,3 +1,4 @@
+import {ensureTextFonts,validateText} from './fonts.js';
 import {fitText} from './text.js';
 import {ImageOverlay,readImage} from './images.js';
 import {PageModel} from './model.js';
@@ -233,6 +234,7 @@ function textValues(){
 $('text-add').onclick=()=>{
   if(activeTab!=='output'||!$('text-size').reportValidity())return;
   run(async()=>{
+    await ensureTextFonts();validateText($('text-content').value,$('text-bold').checked);
     const target=await objectTarget(),width=Math.min(260,target.viewport.width*.7),height=70;
     const [x,y]=target.viewport.convertToPdfPoint((target.viewport.width-width)/2,(target.viewport.height+height)/2);
     commitObject(target,fitText({id:crypto.randomUUID(),type:'text',x,y,width,height,angle:target.rotation,...textValues()}));
@@ -242,5 +244,5 @@ $('text-add').onclick=()=>{
 $('text-apply').onclick=()=>{
   const item=selectedObject();
   if(busy||activeTab!=='output'||item?.type!=='text'||!$('text-size').reportValidity())return;
-  model.updateImage(model.active,item.id,fitText({...item,...textValues()}));previewKey='';refresh();status('テキストを更新しました。');
+  run(async()=>{await ensureTextFonts();validateText($('text-content').value,$('text-bold').checked);model.updateImage(model.active,item.id,fitText({...item,...textValues()}));previewKey='';refresh();status('テキストを更新しました。');});
 };
