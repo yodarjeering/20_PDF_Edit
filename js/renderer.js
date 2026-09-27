@@ -2,7 +2,8 @@ import {paintImages} from './images.js';
 export class PdfRenderer {
   constructor(store){this.store=store;}
   async render(ref,canvas,maxWidth,maxHeight=Infinity,{images=true,scale:fixedScale=null}={}) {
-    const page=await this.store.page(ref);
+    const page=await this.store.renderPage(ref);
+    try{
     if(!canvas.isConnected)return;
     const rotation=((page.rotate+ref.rotation)%360+360)%360;
     const base=page.getViewport({scale:1,rotation});
@@ -14,5 +15,6 @@ export class PdfRenderer {
     await page.render({canvasContext:canvas.getContext('2d'),viewport,transform:[ratio,0,0,ratio,0,0]}).promise;
     if(images)await paintImages(ref,canvas,viewport,ratio);
     return viewport;
+    }finally{this.store.releaseRenderPage(page);}
   }
 }

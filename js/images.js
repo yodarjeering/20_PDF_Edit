@@ -1,5 +1,6 @@
 import {createShape,paintShape,shapeNames} from './shapes.js';
-import {textCanvas} from './text.js';
+import {textCanvas,fitText} from './text.js';
+import {textFontFamily} from './fonts.js';
 // Images and shapes share one ordered object list and PDF coordinate system.
 export function imageMatrix(item, viewport) {
   const angle=(item.angle||0)*Math.PI/180, c=Math.cos(angle), s=Math.sin(angle);
@@ -29,7 +30,7 @@ export async function paintImages(ref,canvas,viewport,ratio) {
 }
 
 export class ImageOverlay {
-  constructor({commit,select,editText}) {this.commit=commit;this.select=select;this.editText=editText;this.selected=null;}
+  constructor({commit,select,commitText,error}) {this.commit=commit;this.select=select;this.commitText=commitText;this.error=error;this.selected=null;this.editing=null;}
   mount(stage,ref,viewport) {
     this.stage=stage;this.ref=ref;this.viewport=viewport;
     if(!(ref.images||[]).some(item=>item.id===this.selected))this.selected=null;
@@ -39,19 +40,68 @@ export class ImageOverlay {
       let img;
       if(item.type==='shape'){img=createShape(item);box.classList.add('shape-object');box.setAttribute('aria-label',shapeNames[item.shape]+'。ドラッグで移動');}
       else {img=document.createElement('img');img.src=item.type==='text'?textCanvas(item).toDataURL():item.data;img.draggable=false;img.alt=item.type==='text'?item.text:'貼り付け画像';}
-      if(item.type==='text'){box.classList.add('text-object');box.setAttribute('aria-label','テキストボックス。ダブルクリックで文字編集');box.addEventListener('dblclick',()=>this.editText?.(item));}
+      if(item.type==='text'){
+        box.classList.add('text-object');box.setAttribute('aria-label','テキストボックス。ダブルクリックまたはEnterで文字編集');
+        box.addEventListener('dblclick',()=>this.beginTextEditing(item.id));
+        box.addEventListener('keydown',event=>{
+          if(event.target===box&&['Enter','F2'].includes(event.key)){event.preventDefault();this.beginTextEditing(item.id);}
+        });
+      }
       const handle=document.createElement('span');handle.className='image-resize';handle.title=['shape','text'].includes(item.type)?'ドラッグで幅・高さを変更':'ドラッグで拡大・縮小（縦横比を維持）';
       box.append(img,handle);stage.append(box);this.position(box,item);
       box.classList.toggle('image-selected',item.id===this.selected);
       box.addEventListener('focus',()=>this.choose(item.id));
-      box.addEventListener('pointerdown',e=>this.start(e,box,item, e.target===handle));
+      box.addEventListener('pointerdown',e=>this.start(e,box,this.ref.images.find(current=>current.id===item.id),e.target===handle));
     }
     this.select(this.selected);
+    if(this.pendingTextEdit){const id=this.pendingTextEdit;this.pendingTextEdit=null;this.beginTextEditing(id);}
+  }
+  beginTextEditing(id) {
+    if(this.editing?.item.id===id)return;
+    if(!this.finishTextEditing())return;
+    const item=this.ref.images?.find(item=>item.id===id&&item.type==='text');
+    const box=[...this.stage.querySelectorAll('.text-object')].find(box=>box.dataset.imageId===id);
+    if(!item||!box)return;
+    this.choose(id);
+    const input=document.createElement('textarea');
+    input.className='inline-text-editor';input.value=item.text;input.maxLength=10000;
+    input.setAttribute('aria-label','テキストボックスの文字');input.placeholder='ここに文字を入力';input.spellcheck=false;
+    Object.assign(input.style,{fontFamily:textFontFamily(item.fontId),fontSize:item.fontSize+'px',fontWeight:item.bold?'700':'400',color:item.color,textAlign:item.align,lineHeight:item.fontSize*1.4+'px'});
+    const editing={item,box,input,pageId:this.ref.id,composing:false};this.editing=editing;
+    box.classList.add('text-editing');box.append(input);
+    input.addEventListener('pointerdown',event=>event.stopPropagation());
+    input.addEventListener('dblclick',event=>event.stopPropagation());
+    input.addEventListener('compositionstart',()=>editing.composing=true);
+    input.addEventListener('compositionend',()=>editing.composing=false);
+    input.addEventListener('input',()=>{
+      const fitted=fitText({...item,text:input.value});this.position(box,fitted);
+    });
+    input.addEventListener('keydown',event=>{
+      event.stopPropagation();
+      if(event.isComposing||editing.composing||event.keyCode===229)return;
+      if(event.key==='Escape'){event.preventDefault();this.finishTextEditing(true);box.focus();}
+      else if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();if(this.finishTextEditing())box.focus();}
+    });
+    input.addEventListener('blur',()=>this.finishTextEditing());
+    input.focus();input.setSelectionRange(input.value.length,input.value.length);
+  }
+  finishTextEditing(cancel=false) {
+    const editing=this.editing;if(!editing)return true;
+    if(editing.composing&&!cancel)return false;
+    const {item,box,input,pageId}=editing;
+    if(!cancel){
+      try{this.commitText(pageId,item.id,input.value);}
+      catch(error){this.error?.(error);input.setAttribute('aria-invalid','true');queueMicrotask(()=>{if(this.editing===editing)input.focus();});return false;}
+    }
+    this.editing=null;box.classList.remove('text-editing');input.remove();
+    const updated=cancel?item:fitText({...item,text:input.value});
+    const img=box.querySelector('img');img.src=textCanvas(updated).toDataURL();img.alt=updated.text;this.position(box,updated);
+    return true;
   }
   choose(id){this.selected=id;this.stage?.querySelectorAll('.image-object').forEach(box=>box.classList.toggle('image-selected',box.dataset.imageId===id));this.select(id);}
   position(box,item){box.style.width=item.width+'px';box.style.height=item.height+'px';box.style.transform='matrix('+imageMatrix(item,this.viewport).join(',')+')';}
   start(event,box,item,resizing) {
-    if(event.button!==0)return;
+    if(event.button!==0||!item)return;
     event.preventDefault();event.stopPropagation();this.choose(item.id);box.focus();box.setPointerCapture(event.pointerId);
     const viewport=this.viewport, rect=this.stage.getBoundingClientRect();
     const point=e=>viewport.convertToPdfPoint(e.clientX-rect.left,e.clientY-rect.top);

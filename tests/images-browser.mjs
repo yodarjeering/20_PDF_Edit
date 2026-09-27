@@ -14,6 +14,13 @@ try {
   const page=await context.newPage(),errors=[];
   page.on('pageerror',error=>errors.push(error.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
   await page.goto('http://127.0.0.1:8080');
+  for(const name of ['image','shape','text']) assert.equal(await page.locator('#editor-'+name).isVisible(),false);
+  await page.locator('#editor-tab-shape').click();
+  assert.equal(await page.locator('#editor-shape').isVisible(),true);
+  await page.locator('#editor-tab-shape').click();
+  assert.equal(await page.locator('#editor-shape').isVisible(),false);
+  // Fonts must work without fetching original binary font files.
+  await page.route('**/vendor/fonts/*.otf',route=>route.abort());
   // A real clipboard PNG with asymmetric colors checks orientation as well as placement.
   await page.evaluate(async()=>{
     const canvas=document.createElement('canvas');canvas.width=200;canvas.height=100;
@@ -60,6 +67,7 @@ try {
   await page.keyboard.press('Control+v');await page.waitForFunction(()=>document.querySelectorAll('.image-object').length===3);
   assert.equal(await page.locator('.image-object').evaluateAll(nodes=>new Set(nodes.map(n=>n.dataset.imageId)).size),3);
   await page.locator('#undo').click();await page.locator('#undo').click();await page.waitForFunction(()=>document.querySelectorAll('.image-object').length===1);
+  await page.locator('#editor-tab-shape').click();
   for(const kind of ['rectangle','ellipse','line','arrow']){
     await page.locator(`[data-shape="${kind}"]`).click();
     await page.locator('#shape-stroke').fill('#10b981');await page.locator('#shape-stroke').dispatchEvent('change');
@@ -89,10 +97,17 @@ try {
   assert.equal(await page.locator('#shape-width').inputValue(),'custom');
   await page.locator('[data-shape="rectangle"]').click();await page.locator('#shape-add').click();await page.waitForSelector('.shape-object');
   assert.equal(await page.locator('.shape-object path').getAttribute('stroke-width'),'3.7');await page.locator('#image-delete').click();
-  await page.locator('#text-content').fill('日本語テキスト\nPDF Studio');await page.locator('#text-size').fill('24');await page.locator('#text-color').fill('#7431b5');
-  await page.locator('#text-add').click();await page.waitForSelector('.text-object');
-  await page.locator('.text-object').dblclick();assert.ok(await page.locator('#text-content').evaluate(el=>el===document.activeElement));
-  await page.locator('#text-content').fill('日本語の文字\n編集したテキスト');await page.locator('#text-bold').check();await page.locator('#text-apply').click();await page.waitForTimeout(150);
+  await page.locator('#editor-tab-text').click();
+  assert.equal(await page.locator('#editor-shape').isVisible(),false);
+  await page.locator('#text-size').fill('24');await page.locator('#text-color').fill('#7431b5');
+  await page.locator('#text-add').click();await page.waitForSelector('.inline-text-editor');
+  assert.ok(await page.locator('.inline-text-editor').evaluate(el=>el===document.activeElement));
+  await page.locator('.inline-text-editor').fill('日本語テキスト\nPDF Studio');
+  await page.locator('.inline-text-editor').press('Control+Enter');await page.waitForTimeout(200);
+  await page.locator('#text-bold').check();await page.waitForFunction(()=>!document.querySelector('#text-bold').disabled);
+  await page.locator('.text-object').dblclick();
+  await page.locator('.inline-text-editor').fill('日本語の文字\n編集したテキスト');
+  await page.locator('.inline-text-editor').press('Control+Enter');await page.waitForTimeout(200);
   assert.equal(await page.locator('.text-object img').getAttribute('alt'),'日本語の文字\n編集したテキスト');
   await page.locator('#undo').click();await page.waitForTimeout(100);assert.equal(await page.locator('.text-object img').getAttribute('alt'),'日本語テキスト\nPDF Studio');await page.locator('#redo').click();await page.waitForSelector('.text-object');
   await page.locator('.text-object').click();await page.keyboard.press('Control+c');await page.keyboard.press('Control+v');await page.waitForFunction(()=>document.querySelectorAll('.text-object').length===2);await page.locator('#undo').click();await page.waitForFunction(()=>document.querySelectorAll('.text-object').length===1);

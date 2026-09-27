@@ -19,6 +19,8 @@ export class PageModel {
   addImage(pageId,image) {this.change(()=>{this.pages=this.pages.map(page=>page.id===pageId?{...page,images:[...(page.images||[]),image]}:page);});}
   updateImage(pageId,imageId,changes) {this.change(()=>{this.pages=this.pages.map(page=>page.id===pageId?{...page,images:(page.images||[]).map(image=>image.id===imageId?{...image,...changes}:image)}:page);});}
   removeImage(pageId,imageId) {this.change(()=>{this.pages=this.pages.map(page=>page.id===pageId?{...page,images:(page.images||[]).filter(image=>image.id!==imageId)}:page);});}
+  updateTextObject(pageId,object){this.change(()=>{this.pages=this.pages.map(page=>page.id===pageId?{...page,textEdits:{...page.textEdits,[object.id]:{...object,isModified:true}}}:page);});}
+  resetTextObject(pageId,id){this.change(()=>{this.pages=this.pages.map(page=>{if(page.id!==pageId)return page;const textEdits={...page.textEdits};delete textEdits[id];return {...page,textEdits};});});}
   paste(refs) {
     if (!refs.length) return;
     this.change(() => {

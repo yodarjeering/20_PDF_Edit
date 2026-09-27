@@ -1,8 +1,7 @@
 import {textFontFamily,textWidth,textAscent,textDescent} from './fonts.js';
 // Preview and PDF output share the same font, metrics and line layout.
-const family=textFontFamily;
 export function textLines(item,context) {
-  context.font=`${item.bold?'bold':'normal'} ${item.fontSize}px ${family}`;
+  context.font=`${item.bold?'bold':'normal'} ${item.fontSize}px ${textFontFamily(item.fontId)}`;
   const lines=[],width=Math.max(1,item.width-12);
   for(const paragraph of item.text.replace(/\r/g,'').replace(/\t/g,'    ').split('\n')){
     let line='';
