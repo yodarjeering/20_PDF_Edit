@@ -32,10 +32,10 @@ export class FontResolver{
     }
     const bold=/bold|black|heavy|demi|semibold/i.test(object.normalizedFontName);
     const serif=!/sans|gothic|ゴシック/i.test(object.normalizedFontName)&&/serif|mincho|明朝|times/i.test(object.normalizedFontName);
-    const candidates=choice==='auto'?[serif?'noto-serif':defaultFontId,...fontCatalog.map(font=>font.id)]:[choice];
+    const candidates=choice==='auto'?[serif?'noto-serif':defaultFontId,...fontCatalog.filter(font=>!font.local).map(font=>font.id)]:[choice];
     for(const fontId of new Set(candidates)){
       await ensureTextFonts(fontId,bold);const font=textFont(bold,fontId);
-      if(canRender(font.parsed,newText))return {kind:'builtin',key:`builtin:${fontId}:${bold}`,bytes:font.bytes,fontId,bold,label:fontCatalog.find(font=>font.id===fontId).label,reason:choice==='auto'?reason:'指定した内蔵フォントを使用します。'};
+      if(canRender(font.parsed,newText))return {kind:'builtin',key:`builtin:${fontId}:${bold}`,bytes:font.bytes,fontId,bold,label:fontCatalog.find(font=>font.id===fontId).label,reason:choice==='auto'?reason:'指定したフォントを使用します。'};
     }
     throw new Error('この文字列は現在の編集方式では安全に編集できません。対応Glyphを持つフォントがありません。');
   }

@@ -7,7 +7,7 @@ const standalone=globalThis.__PDF_STUDIO_STANDALONE__;
 pdfjs.GlobalWorkerOptions.workerSrc=standalone?.workerSrc||new URL('../vendor/pdfjs/build/pdf.worker.mjs',import.meta.url).href;
 if(standalone?.workerPort)pdfjs.GlobalWorkerOptions.workerPort=standalone.workerPort;
 const assets=standalone?.assetsBase||new URL('../vendor/pdfjs/',import.meta.url).href;
-const pdfOptions={cMapUrl:assets+'cmaps/',cMapPacked:true,standardFontDataUrl:assets+'standard_fonts/',wasmUrl:assets+'wasm/',isEvalSupported:false,...(standalone?{useWorkerFetch:true}:{})};
+const pdfOptions={cMapUrl:assets+'cmaps/',cMapPacked:true,standardFontDataUrl:assets+'standard_fonts/',wasmUrl:assets+'wasm/',isEvalSupported:false,...(standalone?{useWorkerFetch:true,useSystemFonts:false}:{})};
 export class DocumentStore {
   sources=new Map();
   fontResolver=new FontResolver(this);

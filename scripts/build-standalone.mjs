@@ -67,7 +67,7 @@ for(const path of licensePaths)licenses.push(`<h3>${escapeHtml(path)}</h3><pre>$
 const licenseUi='<button type="button" id="standalone-licenses" style="font-size:12px">ライセンス</button>';
 const licenseDialog=`<dialog id="license-dialog" style="max-width:850px;width:85vw;max-height:85vh;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:9px"><form method="dialog"><button>閉じる</button></form><h2>同梱ライブラリ・フォントのライセンス</h2><p>PDF.js Workerの読み込み先を、このHTMLに埋め込まれたデータへ切り替えています。</p><div style="white-space:normal;overflow-wrap:anywhere">${licenses.join('\n')}</div></dialog>`;
 let html=await source('index.html');
-html=html.replace('<script src="js/theme.js"></script>',`<script>${inlineScript(await source('js/theme.js'))}</script>`)
+html=html.replace("connect-src 'self' blob: data:","connect-src blob: data:").replace('<script src="js/theme.js"></script>',`<script>${inlineScript(await source('js/theme.js'))}</script>`)
   .replace('<link rel="stylesheet" href="style.css">',`<style>${await source('style.css')}</style>`)
   .replace('<link rel="stylesheet" href="theme.css">',`<style>${await source('theme.css')}\n#license-dialog pre{white-space:pre-wrap;font:12px/1.6 monospace}</style>`)
   .replace('<div class="header-actions">','<div class="header-actions">'+licenseUi)

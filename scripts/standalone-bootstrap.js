@@ -10,6 +10,16 @@
     for(const element of document.querySelectorAll('script[data-pdf-resource]')){
       resources[element.dataset.pdfResource]={base64:element.textContent.trim(),mime:element.dataset.mime||'application/octet-stream'};
     }
+    const nativeFetch=globalThis.fetch.bind(globalThis);
+    globalThis.fetch=(input,options)=>{
+      const url=typeof input==='string'?input:input instanceof URL?input.href:input.url;
+      if(url.startsWith(assetsBase)){
+        const resource=resources[url.slice(assetsBase.length)];
+        if(!resource)return Promise.reject(new Error('Missing embedded PDF asset: '+url));
+        return Promise.resolve(new Response(Uint8Array.from(atob(resource.base64),char=>char.charCodeAt(0)),{headers:{'Content-Type':resource.mime}}));
+      }
+      return nativeFetch(input,options);
+    };
     // Only this reserved prefix is routed to embedded bytes. A missing asset
     // fails locally, instead of making a request to the network or filesystem.
     const workerPrefix=`const __pdfStudioResources=${JSON.stringify(resources)};

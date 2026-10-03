@@ -1,4 +1,5 @@
 import {ExistingTextEditor} from './existing-text-editor.js';
+import {setupLocalFonts} from './local-fonts.js';
 import {ensureTextFonts,validateText,fontCatalog,defaultFontId} from './fonts.js';
 import {fitText} from './text.js';
 import {ImageOverlay,readImage} from './images.js';
@@ -15,21 +16,22 @@ const sourceViews=new Map();
 const documentColors=new Map();
 const view=()=>activeTab==='output'?model:sourceViews.get(activeTab);
 let busy=false, mode='open', dragged=[], previewKey='', revision=0, queue=[], running=false;
-let zoom='fit';
+let zoom='width';
+let pageListKey='';
 const overlay=new ImageOverlay({commit:(pageId,imageId,changes)=>{if(busy||activeTab!=='output')return;model.updateImage(pageId,imageId,changes.type==='text'?fitText(changes):changes);previewKey='';refresh();status('オブジェクトの位置・サイズを変更しました。');},select:id=>{$('image-delete').disabled=busy||activeTab!=='output'||!id;$('object-rotate').disabled=busy||activeTab!=='output'||!id;syncShapeControls();syncTextControls();},commitText:commitInlineText,error:error=>status(error.message,true)});
 const status=(message,error=false)=>{$('status').textContent=message;$('status').classList.toggle('error',error);};
 const existingEditor=new ExistingTextEditor({store,
   commit:(pageId,object)=>{model.updateTextObject(pageId,object);previewKey='';},
   reset:(pageId,id)=>{model.resetTextObject(pageId,id);previewKey='';},
   select:()=>overlay.choose(null)});
-function controls(){existingEditor.setBusy(busy||activeTab!=='output');const readonly=activeTab!=='output';for(const id of ['text-add','text-font','text-size','text-color','text-bold','text-align','shape-width-custom'])$(id).disabled=busy||readonly;document.querySelectorAll('.shape-pictogram').forEach(button=>button.disabled=busy||readonly);$('shape-add').disabled=busy||readonly;$('object-rotate').disabled=busy||readonly||!overlay.selected;for(const id of ['shape-kind','shape-stroke','shape-fill','shape-no-fill','shape-width'])$(id).disabled=busy||readonly;$('image-add').disabled=busy||readonly;$('image-delete').disabled=busy||readonly||!overlay.selected;for(const id of ['open','add','all','go'])$(id).disabled=busy;for(const id of ['delete','left','right'])$(id).disabled=busy||readonly||!model.selected.size;$('undo').disabled=busy||readonly||!model.past.length;$('redo').disabled=busy||readonly||!model.future.length;$('save').disabled=busy||!model.pages.length;}
+function controls(){existingEditor.setBusy(busy||activeTab!=='output');const readonly=activeTab!=='output';$('text-bold').disabled=busy||readonly||fontCatalog.some(font=>font.id===$('text-font').value&&font.local);for(const id of ['text-add','text-font','text-size','text-color','text-bold','text-align','shape-width-custom'])$(id).disabled=busy||readonly;document.querySelectorAll('.shape-pictogram').forEach(button=>button.disabled=busy||readonly);$('shape-add').disabled=busy||readonly;$('object-rotate').disabled=busy||readonly||!overlay.selected;for(const id of ['shape-kind','shape-stroke','shape-fill','shape-no-fill','shape-width'])$(id).disabled=busy||readonly;$('image-add').disabled=busy||readonly;$('image-delete').disabled=busy||readonly||!overlay.selected;for(const id of ['open','add','all','go'])$(id).disabled=busy;for(const id of ['delete','left','right'])$(id).disabled=busy||readonly||!model.selected.size;$('undo').disabled=busy||readonly||!model.past.length;$('redo').disabled=busy||readonly||!model.future.length;$('save').disabled=busy||!model.pages.length;}
 async function run(fn){if(busy)return;busy=true;controls();try{await existingEditor.apply();await fn();}catch(e){status(e.message,true);}finally{busy=false;controls();}}
 const observer=new IntersectionObserver(entries=>{for(const entry of entries){const card=entry.target;if(entry.isIntersecting){if(!card.dataset.queued){card.dataset.queued='1';queue.push(card);}}else{card.querySelector('.thumb').replaceChildren();delete card.dataset.queued;}}pump();},{root:$('pages'),rootMargin:'200px'});
-async function pump(){if(running)return;running=true;try{while(queue.length){const card=queue.shift();if(!card.isConnected||!card.dataset.queued)continue;const ref=view().pages.find(p=>p.id===card.dataset.id);if(!ref)continue;const canvas=document.createElement('canvas');card.querySelector('.thumb').replaceChildren(canvas);try{await renderer.render(ref,canvas,132,155);}catch(e){if(card.isConnected){card.querySelector('.thumb').textContent='描画できません';status(`ページ描画エラー: ${e.message}`,true);}}}}finally{running=false;}}
+async function pump(){if(running)return;running=true;try{while(queue.length){const card=queue.shift();if(!card.isConnected||!card.dataset.queued)continue;const ref=view().pages.find(p=>p.id===card.dataset.id);if(!ref)continue;const canvas=document.createElement('canvas');card.querySelector('.thumb').replaceChildren(canvas);try{await renderer.render(ref,canvas,132,155,{images:false});}catch(e){if(card.isConnected){card.querySelector('.thumb').textContent='描画できません';status(`ページ描画エラー: ${e.message}`,true);}}}}finally{running=false;}}
 function updateSelection(){document.querySelectorAll('.page').forEach(card=>{card.classList.toggle('selected',view().selected.has(card.dataset.id));card.classList.toggle('active',view().active===card.dataset.id);card.setAttribute('aria-selected',String(view().selected.has(card.dataset.id)));});$('selection').textContent=`${view().selected.size} ページ選択中` ;controls();preview();}
-function refresh(){renderTabs();revision++;observer.disconnect();queue=[];$('pages').replaceChildren();const fragment=document.createDocumentFragment();view().pages.forEach((ref,index)=>{const source=store.sources.get(ref.sourceId);const card=document.createElement('div');card.className='page';card.dataset.id=ref.id;card.draggable=activeTab==='output';card.tabIndex=0;card.setAttribute('role','option');card.setAttribute('aria-label',`${index+1}ページ、${source.name} 元ページ${ref.sourcePage}`);
+function refresh(){const listKey=JSON.stringify([activeTab,view().pages.map(ref=>[ref.id,ref.rotation])]);if(listKey===pageListKey){updateSelection();return;}renderTabs();pageListKey=JSON.stringify([activeTab,view().pages.map(ref=>[ref.id,ref.rotation])]);revision++;observer.disconnect();queue=[];$('pages').replaceChildren();const fragment=document.createDocumentFragment();view().pages.forEach((ref,index)=>{const source=store.sources.get(ref.sourceId);const card=document.createElement('div');card.className='page';card.dataset.id=ref.id;card.draggable=activeTab==='output';card.tabIndex=0;card.setAttribute('role','option');card.setAttribute('aria-label',`${index+1}ページ、${source.name} 元ページ${ref.sourcePage}`);
 const thumb=document.createElement('div');thumb.className='thumb';thumb.textContent='描画待ち';const info=document.createElement('div');info.className='page-info';info.textContent=`${index+1} ページ`;const badge=document.createElement('span');badge.className='badge';badge.textContent=`↻ ${ref.rotation}°`;info.append(badge);const origin=document.createElement('div');origin.className='origin';origin.textContent=`${source.name} · ${ref.sourcePage}`;origin.title=origin.textContent;card.append(thumb,info,origin);fragment.append(card);});$('pages').append(fragment);document.querySelectorAll('.page').forEach(card=>observer.observe(card));$('count').textContent=view().pages.length;$('jump').max=view().pages.length;updateSelection();store.collect(model,pageClipboard.map(page=>page.sourceId)).then(()=>{for(const id of sourceViews.keys())if(!store.sources.has(id))sourceViews.delete(id);}).catch(e=>status(e.message,true));}
-async function preview(force=false){if(overlay.editing&&!overlay.finishTextEditing())return;const ref=view().pages.find(p=>p.id===view().active);const key=ref?`${ref.id}:${ref.rotation}`:'empty:'+model.documentIds.join(',');if(!force&&key===previewKey)return;previewKey=key;if(!ref){existingEditor.clear();overlay.choose(null);$('preview').replaceChildren();const empty=document.createElement('div');empty.className='empty';const title=document.createElement('h2');title.textContent='編集結果は空です';const hint=document.createElement('p');hint.textContent=model.documentIds.length?'各PDFタブでページをコピー（Ctrl+C）し、この編集結果に貼り付け（Ctrl+V）してください。':'PDFを開くか、ここへドラッグ＆ドロップしてください。';empty.append(title,hint);$('preview').append(empty);$('preview-title').textContent='プレビュー';$('source-label').textContent='保存するページを編集結果へ追加してください。';return;}if(!(ref.images||[]).some(image=>image.id===overlay.selected))overlay.choose(null);const canvas=document.createElement('canvas');const stage=document.createElement('div');stage.className='page-stage';stage.append(canvas);$('preview').replaceChildren(stage);$('preview-title').textContent=`${store.sources.get(ref.sourceId).name} · ${view().pages.indexOf(ref)+1} / ${view().pages.length}`;$('source-label').textContent=`${store.sources.get(ref.sourceId).name} · 元ページ ${ref.sourcePage}`;try{const viewport=await renderer.render(ref,canvas,Math.max(100,$('preview').clientWidth-60),Math.max(100,$('preview').clientHeight-60),{images:false,scale:zoom==='fit'?null:Number(zoom)});if(stage.isConnected&&viewport){stage.style.width=viewport.width+'px';stage.style.height=viewport.height+'px';if(activeTab==='output'){overlay.mount(stage,ref,viewport);await existingEditor.mount(stage,ref,viewport);}else existingEditor.clear();}}catch(e){if(canvas.isConnected)status(`プレビューエラー: ${e.message}`,true);}}
+async function preview(force=false){if(overlay.editing&&!overlay.finishTextEditing())return;const ref=view().pages.find(p=>p.id===view().active);const key=ref?`${ref.id}:${ref.rotation}`:'empty:'+model.documentIds.join(',');if(!force&&key===previewKey)return;previewKey=key;if(!ref){existingEditor.clear();overlay.choose(null);$('preview').replaceChildren();const empty=document.createElement('div');empty.className='empty';const title=document.createElement('h2');title.textContent='編集結果は空です';const hint=document.createElement('p');hint.textContent=model.documentIds.length?'各PDFタブでページをコピー（Ctrl+C）し、この編集結果に貼り付け（Ctrl+V）してください。':'PDFを開くか、ここへドラッグ＆ドロップしてください。';empty.append(title,hint);$('preview').append(empty);$('preview-title').textContent='プレビュー';$('source-label').textContent='保存するページを編集結果へ追加してください。';return;}if(!(ref.images||[]).some(image=>image.id===overlay.selected))overlay.choose(null);const canvas=document.createElement('canvas');const stage=document.createElement('div');stage.className='page-stage';stage.append(canvas);$('preview').replaceChildren(stage);$('preview-title').textContent=`${store.sources.get(ref.sourceId).name} · ${view().pages.indexOf(ref)+1} / ${view().pages.length}`;$('source-label').textContent=`${store.sources.get(ref.sourceId).name} · 元ページ ${ref.sourcePage}`;try{const viewport=await renderer.render(ref,canvas,Math.max(100,$('preview').clientWidth-32),zoom==='width'?Infinity:Math.max(100,$('preview').clientHeight-32),{images:false,scale:['fit','width'].includes(zoom)?null:Number(zoom)});if(stage.isConnected&&viewport){stage.style.width=viewport.width+'px';stage.style.height=viewport.height+'px';if(activeTab==='output'){overlay.mount(stage,ref,viewport);await existingEditor.mount(stage,ref,viewport);}else existingEditor.clear();}}catch(e){if(canvas.isConnected)status(`プレビューエラー: ${e.message}`,true);}}
 async function load(files,replace){if(!files.length)return;await run(async()=>{status('PDFを読み込んでいます…');const before=new Set(store.sources.keys());const pages=[];try{for(const file of files){if(!file.name.toLowerCase().endsWith('.pdf')&&file.type!=='application/pdf')throw new Error('PDFファイルを選択してください。');pages.push(...await store.load(file));}}catch(e){await store.discard([...store.sources.keys()].filter(id=>!before.has(id)));throw e;}model.add(pages,replace,!(replace&&files.length>1));activeTab='output';previewKey='';refresh();status(`${files.length} ファイル・${pages.length} ページを読み込みました。`);});}
 $('open').onclick=()=>{mode='open';$('file').click();};$('add').onclick=()=>{mode='add';$('file').click();};$('file').onchange=()=>{load([...$('file').files],mode==='open');$('file').value='';};
 for(const [id,action]of Object.entries({delete:()=>model.remove(),left:()=>model.rotate(-90),right:()=>model.rotate(90),undo:()=>model.undo(),redo:()=>model.redo()}))$(id).onclick=()=>{if(busy)return;action();previewKey='';refresh();status(`${{delete:'削除',left:'左回転',right:'右回転',undo:'Undo',redo:'Redo'}[id]}しました。`);};
@@ -128,7 +130,7 @@ $('image-delete').onclick=()=>{
   if(busy||activeTab!=='output'||!overlay.selected)return;
   model.removeImage(model.active,overlay.selected);overlay.choose(null);previewKey='';refresh();status('選択オブジェクトを削除しました。');
 };
-$('zoom').onchange=()=>{zoom=$('zoom').value;$('view-scale').textContent='表示：'+(zoom==='fit'?'ページ全体':Math.round(Number(zoom)*100)+'%');preview(true);};
+$('zoom').onchange=()=>{zoom=$('zoom').value;$('view-scale').textContent='表示：'+(zoom==='width'?'幅に合わせる':zoom==='fit'?'ページ全体':Math.round(Number(zoom)*100)+'%');preview(true);};
 async function insertImage(file){
   if(activeTab!=='output'){status('画像は「編集結果」タブへ貼り付けてください。');return;}
   await run(async()=>{
@@ -230,10 +232,10 @@ for(const button of document.querySelectorAll('.shape-pictogram')){
 function syncTextControls(){
   const item=selectedObject();
   if(activeTab!=='output'||item?.type!=='text')return;
-  $('text-font').value=item.fontId||defaultFontId;$('text-size').value=item.fontSize;$('text-color').value=item.color;$('text-bold').checked=item.bold;$('text-align').value=item.align;
+  $('text-font').value=item.fontId||defaultFontId;$('text-size').value=item.fontSize;$('text-color').value=item.color;$('text-bold').checked=item.bold;$('text-bold').disabled=busy||fontCatalog.some(font=>font.id===$('text-font').value&&font.local);$('text-align').value=item.align;
 }
 function textValues(){
-  return {fontId:$('text-font').value,fontSize:Number($('text-size').value),color:$('text-color').value,bold:$('text-bold').checked,align:$('text-align').value};
+  return {fontId:$('text-font').value,fontSize:Number($('text-size').value),color:$('text-color').value,bold:fontCatalog.some(font=>font.id===$('text-font').value&&font.local)?false:$('text-bold').checked,align:$('text-align').value};
 }
 function commitInlineText(pageId,id,text){
   const item=model.pages.find(page=>page.id===pageId)?.images?.find(item=>item.id===id);
@@ -244,14 +246,15 @@ function commitInlineText(pageId,id,text){
   const ref=model.pages.find(page=>page.id===pageId);
   if(overlay.ref?.id===pageId)overlay.ref=ref;
   // Keep click targets and focus intact when a pointer press blurs the editor.
-  const thumb=document.querySelector(`[data-id="${pageId}"] .thumb`);
-  if(thumb?.querySelector('canvas')){
-    const canvas=document.createElement('canvas');thumb.replaceChildren(canvas);
-    renderer.render(ref,canvas,132,155).catch(error=>status(error.message,true));
-  }
   status('テキストを更新しました。');
 }
 for(const font of fontCatalog){const option=document.createElement('option');option.value=font.id;option.textContent=font.label;$('text-font').append(option);}
+setupLocalFonts({isBusy:()=>busy,onAdded:font=>{
+  for(const id of ['text-font','existing-font']){
+    if([...$(id).options].some(option=>option.value===font.id))continue;
+    const option=document.createElement('option');option.value=font.id;option.textContent=font.label;$(id).append(option);
+  }
+}});
 $('text-add').onclick=()=>{
   if(activeTab!=='output'||!$('text-size').reportValidity())return;
   const values=textValues();
@@ -265,6 +268,7 @@ $('text-add').onclick=()=>{
   });
 };
 for(const id of ['text-font','text-size','text-color','text-bold','text-align'])$(id).addEventListener('change',()=>{
+  const local=fontCatalog.some(font=>font.id===$('text-font').value&&font.local);if(local)$('text-bold').checked=false;$('text-bold').disabled=busy||activeTab!=='output'||local;
   const item=selectedObject();
   if(busy||activeTab!=='output'||item?.type!=='text'||!$('text-size').reportValidity())return;
   const values=textValues(),pageId=model.active;

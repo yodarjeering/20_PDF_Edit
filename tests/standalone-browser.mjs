@@ -57,7 +57,11 @@ try{
   await page.locator('#open').click();await page.locator('#file').setInputFiles('tests/output/standalone-input.pdf');
   await page.waitForFunction(()=>!document.querySelector('#open').disabled);
   await page.getByRole('button',{name:'既存文字: Voltage: 24V',exact:true}).click();
+  await page.evaluate(()=>{globalThis.savedPageCard=document.querySelector('.page');globalThis.savedThumb=globalThis.savedPageCard.querySelector('canvas');});
+  assert.equal(await page.locator('#zoom').inputValue(),'width');
+  assert.equal(await page.locator('#pages').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),1);
   await page.locator('#existing-content').fill('Voltage: 12V');await page.locator('#existing-apply').click();
+  assert.ok(await page.evaluate(()=>globalThis.savedPageCard===document.querySelector('.page')&&globalThis.savedThumb===document.querySelector('.page canvas')));
   await page.getByRole('button',{name:'既存文字: Voltage: 12V',exact:true}).waitFor();
   await page.locator('#undo').click();await page.getByRole('button',{name:'既存文字: Voltage: 24V',exact:true}).waitFor();
   await page.locator('#redo').click();await page.getByRole('button',{name:'既存文字: Voltage: 12V',exact:true}).waitFor();
@@ -77,7 +81,7 @@ try{
   const output=await readFile('tests/output/standalone-edited.pdf');
   const content=await page.evaluate(async bytes=>{
     const {getDocument}=await import('pdf-studio/vendor/pdfjs/build/pdf.mjs');
-    const runtime=globalThis.__PDF_STUDIO_STANDALONE__,pdf=await getDocument({data:new Uint8Array(bytes),cMapUrl:runtime.assetsBase+'cmaps/',cMapPacked:true,standardFontDataUrl:runtime.assetsBase+'standard_fonts/',wasmUrl:runtime.assetsBase+'wasm/',useWorkerFetch:true}).promise;
+    const runtime=globalThis.__PDF_STUDIO_STANDALONE__,pdf=await getDocument({data:new Uint8Array(bytes),cMapUrl:runtime.assetsBase+'cmaps/',cMapPacked:true,standardFontDataUrl:runtime.assetsBase+'standard_fonts/',wasmUrl:runtime.assetsBase+'wasm/',useWorkerFetch:true,useSystemFonts:false}).promise;
     const first=await pdf.getPage(1),items=(await first.getTextContent()).items;
     const canvas=document.createElement('canvas'),viewport=first.getViewport({scale:1});canvas.width=viewport.width;canvas.height=viewport.height;
     await first.render({canvasContext:canvas.getContext('2d'),viewport}).promise;

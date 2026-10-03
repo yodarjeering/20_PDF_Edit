@@ -9,6 +9,35 @@ export const fontCatalog=[
 export const defaultFontId='noto-sans';
 const loaded=new Map(),pending=new Map();
 const registeredBase64=new Map();
+const localFonts=new Map();
+export async function registerLocalFont(fontData){
+  const existing=fontCatalog.find(font=>font.postscriptName===fontData.postscriptName);
+  if(existing)return existing;
+  const bytes=new Uint8Array(await (await fontData.blob()).arrayBuffer());
+  const parsed=globalThis.fontkit.create(bytes);
+  if(typeof parsed.hasGlyphForCodePoint!=='function')throw new Error('このフォント形式は編集に対応していません。別のフォントを選択してください。');
+  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  if(bytes.length<12)throw new Error('フォントデータが不正です。');
+  const count=view.getUint16(4);
+  if(12+count*16>bytes.length)throw new Error('フォントのテーブルが不正です。');
+  for(let i=0;i<count;i++){
+    const entry=12+i*16;
+    if(view.getUint32(entry)!==0x4f532f32)continue;
+    const offset=view.getUint32(entry+8),length=view.getUint32(entry+12);
+    if(length<10||offset+length>bytes.length)throw new Error('フォントの埋め込み情報が不正です。');
+    if(view.getUint16(offset+8)&0x0302)throw new Error('このフォントはPDFへの埋め込みまたはサブセット化が制限されています。別のフォントを選択してください。');
+  }
+  // Verify PDF embedding before offering a font as an editing choice.
+  const probe=await globalThis.PDFLib.PDFDocument.create();probe.registerFontkit(globalThis.fontkit);
+  const embedded=await probe.embedFont(bytes,{subset:true});
+  const sample=parsed.characterSet.find(code=>code>=32&&code<=0x10ffff);
+  if(sample===undefined)throw new Error('編集に使用できる文字がありません。');
+  embedded.encodeText(String.fromCodePoint(sample));await probe.save();
+  const id='local-'+crypto.randomUUID(),definition={id,label:'Windows: '+(fontData.fullName||fontData.postscriptName),local:true,postscriptName:fontData.postscriptName};
+  localFonts.set(id,{bytes:bytes.buffer,parsed});fontCatalog.push(definition);
+  try{await ensureTextFonts(id,false);}catch(error){localFonts.delete(id);fontCatalog.splice(fontCatalog.indexOf(definition),1);throw error;}
+  return definition;
+}
 export function base64ToBytes(value){
   if(typeof value!=='string'||!value.length)throw new Error('フォントのBase64データがありません。');
   return Uint8Array.from(atob(value),char=>char.charCodeAt(0));
@@ -26,11 +55,12 @@ export function ensureTextFonts(fontId=defaultFontId,bold=false) {
   if(!pending.has(key))pending.set(key,(async()=>{
     const definition=fontCatalog.find(font=>font.id===fontId);
     if(!definition)throw new Error('選択されたフォントが見つかりません。');
+    const local=localFonts.get(fontId);
     const registered=registeredBase64.get(fontId);
     const embedded=globalThis.__PDF_STUDIO_STANDALONE__?.getFontBase64;
-    const base64=registered?registered[bold?'bold':'regular']:embedded?embedded(`${definition.file}-${bold?'Bold':'Regular'}`):(await import(`../vendor/fonts/${definition.file}-${bold?'Bold':'Regular'}.base64.js`)).default;
-    const bytes=base64ToBytes(base64).buffer;
-    const parsed=globalThis.fontkit.create(new Uint8Array(bytes));
+    const base64=local?null:registered?registered[bold?'bold':'regular']:embedded?embedded(`${definition.file}-${bold?'Bold':'Regular'}`):(await import(`../vendor/fonts/${definition.file}-${bold?'Bold':'Regular'}.base64.js`)).default;
+    const bytes=local?.bytes||base64ToBytes(base64).buffer;
+    const parsed=local?.parsed||globalThis.fontkit.create(new Uint8Array(bytes));
     const face=new FontFace(textFontFamily(fontId),bytes,{weight:bold?'700':'400'});
     await face.load();document.fonts.add(face);loaded.set(key,{bytes,parsed});
   })().catch(error=>{pending.delete(key);throw error;}));

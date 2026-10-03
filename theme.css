@@ -145,3 +145,8 @@ body.file-over #preview { outline-color: var(--accent); }
 .existing-text-hit:hover:not(:disabled){background:#4e9bff22;outline:1px solid #258aff}
 .existing-text-hit.selected{background:#4e9bff22;outline:1.5px solid #258aff}
 .image-object{z-index:2}
+
+#local-font-dialog{max-width:680px;width:calc(100vw - 40px);max-height:85vh;overflow:auto;padding:24px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font-size:14px;line-height:1.7}
+#local-font-dialog::backdrop{background:#0008}.local-font-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}.local-font-heading h2{font-size:20px;margin:0}
+.local-font-help{color:var(--muted)}#local-font-picker label{display:block;margin-top:12px}#local-font-search,#local-font-list{width:100%;padding:8px;background:var(--raised);color:var(--text);border:1px solid var(--border);border-radius:6px;font:inherit}#local-font-state{color:var(--accent)}#local-font-state.error{color:#e87965}
+#local-font-dialog p{margin:10px 0}#local-font-list{height:150px}
