@@ -1,11 +1,36 @@
 import {normalizeFontName} from './pdf-fonts.js';
 export function multiplyMatrices(a,b){return [a[0]*b[0]+a[2]*b[1],a[1]*b[0]+a[3]*b[1],a[0]*b[2]+a[2]*b[3],a[1]*b[2]+a[3]*b[3],a[0]*b[4]+a[2]*b[5]+a[4],a[1]*b[4]+a[3]*b[5]+a[5]];}
 export function textGeometry(item){
+  if(item.annotationKind==='FreeText'){
+    const [x,y,right,top]=item.annotationRect;
+    return {width:right-x,height:top-y,top:top-y,bottom:0,basis:[1,0,0,1,x,y],css:[1,0,0,-1,x,top]};
+  }
   const [a,b,c,d,e,f]=item.transform,size=item.originalFontSize||item.fontSize;
   const xScale=Math.hypot(a,b)/size;
   const top=(item.ascent??.8)*size,bottom=(item.descent??-.2)*size;
   return {width:item.width/xScale,height:top-bottom,top,bottom,basis:[a/size,b/size,c/size,d/size,e,f],
     css:[a/size,b/size,-c/size,-d/size,e+c/size*top,f+d/size*top]};
+}
+// Annotation appearances are separate from page text and are not returned by
+// getTextContent. Use Contents rather than attempting to decode their AP stream.
+export function createAnnotationTextObjects(annotations,{sourceId,pageIndex}){
+  return annotations.flatMap(annotation=>{
+    if(annotation.subtype!=='FreeText'||annotation.annotationFlags&3)return [];
+    const text=annotation.contentsObj?.str||annotation.textContent?.join('\n')||'';
+    const rect=annotation.rect,ref=/^(\d+)R(\d+)?$/.exec(annotation.id||'');
+    if(!text.trim()||!ref||rect?.length!==4||!rect.every(Number.isFinite)||rect[2]<=rect[0]||rect[3]<=rect[1])return [];
+    const appearance=annotation.defaultAppearanceData||{},size=appearance.fontSize>0?appearance.fontSize:12;
+    const color=appearance.fontColor;
+    const hex=color?.length===3?'#'+Array.from(color,value=>Math.round(value).toString(16).padStart(2,'0')).join(''):'#000000';
+    const reason=annotation.rotation?'回転したテキストボックス注釈の編集は未対応です。':null;
+    return [{id:`${sourceId}:${pageIndex}:annotation:${annotation.id}`,sourceId,pageIndex,source:'pdf',
+      annotationKind:'FreeText',annotationRef:{objectNumber:Number(ref[1]),generationNumber:Number(ref[2]||0)},annotationRect:[...rect],
+      text,originalText:text,x:rect[0],y:rect[1],width:rect[2]-rect[0],height:rect[3]-rect[1],
+      transform:[size,0,0,size,rect[0],rect[1]],fontSize:size,originalFontSize:size,
+      fontName:appearance.fontName||'注釈フォント',normalizedFontName:appearance.fontName||'注釈フォント',originalFontIdentified:false,
+      color:hex,originalColor:hex,fontChoice:'auto',background:'#ffffff',isModified:false,
+      editMode:reason?'unsupported':'overlay',unsupportedReason:reason}];
+  });
 }
 const normalize=value=>value.normalize('NFKC').replace(/\s/g,'');
 // Operator-list glyphs provide color and rendering mode; getTextContent remains

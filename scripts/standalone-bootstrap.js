@@ -46,7 +46,12 @@ function __pdfStudioLoadOpenJPEG(url){
     const workerSrc=blob(workerPrefix+text(asset('pdf-worker-source')),'text/javascript');
     // Classic Blob workers work on file://, where module workers may be blocked.
     const workerPort=new Worker(workerSrc);
-    globalThis.__PDF_STUDIO_STANDALONE__={assetsBase,workerSrc,workerPort,getFontBase64:name=>asset('font-'+name).textContent.trim()};
+    globalThis.__PDF_STUDIO_STANDALONE__={assetsBase,workerSrc,workerPort,getFontBytes:async name=>{
+      const element=asset('font-'+name),data=bytes(element);
+      if(element.dataset.compression!=='gzip')return data;
+      const stream=new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }};
     for(const element of document.querySelectorAll('script[data-pdf-module]'))imports[element.dataset.pdfModule]=blob(bytes(element),'text/javascript');
     const map=document.createElement('script');map.type='importmap';map.textContent=JSON.stringify({imports});document.head.append(map);
     for(const id of ['pdf-lib-source','fontkit-source']){

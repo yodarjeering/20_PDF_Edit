@@ -71,10 +71,10 @@ try{
     await page.locator('#text-bold').setChecked(bold);
     await page.waitForFunction(()=>!document.querySelector('#text-bold').disabled);
     await page.locator('#text-add').click();await editor.waitFor();
-    await editor.fill(`日本語 ${font.id} ${bold?'Bold':'Regular'}`);
+    await editor.fill(`${font.id==='times-new-roman'?'English':'日本語'} ${font.id} ${bold?'Bold':'Regular'}`);
     await editor.press('Control+Enter');await page.waitForTimeout(150);
   }
-  assert.equal(new Set(fontRequests).size,12);
+  assert.equal(new Set(fontRequests).size,fontCatalog.length*2);
   const download=page.waitForEvent('download');await page.locator('#save').click();
   await(await download).saveAs('tests/output/all-fonts.pdf');
   const result=await page.evaluate(async()=>{
@@ -85,9 +85,9 @@ try{
     await p.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
     return {text:content.items.map(item=>item.str).join(''),fonts:Object.keys(content.styles).length};
   });
-  assert.equal(result.fonts,12,'all font/weight pairs are embedded independently');
-  for(const font of fontCatalog)for(const weight of ['Regular','Bold'])assert.ok(result.text.includes(`日本語 ${font.id} ${weight}`));
+  assert.equal(result.fonts,fontCatalog.length*2,'all font/weight pairs are embedded independently');
+  for(const font of fontCatalog)for(const weight of ['Regular','Bold'])assert.ok(result.text.includes(`${font.id==='times-new-roman'?'English':'日本語'} ${font.id} ${weight}`));
   assert.deepEqual(errors,[]);
   await page.screenshot({path:'tests/output/direct-text-editor.png'});
-  console.log('PASS: direct editing, commit-on-save, cancel, IME event handling, resize, invalid glyph recovery, 12 embedded font variants and searchable PDF');
+  console.log('PASS: direct editing, commit-on-save, cancel, IME event handling, resize, invalid glyph recovery, 16 embedded font variants and searchable PDF');
 }finally{await browser.close();}

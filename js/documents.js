@@ -1,6 +1,6 @@
 import * as pdfjs from '../vendor/pdfjs/build/pdf.mjs';
 import {inspectPageFonts,matchPdfFonts} from './pdf-fonts.js';
-import {createTextObjects,textPaints} from './text-objects.js';
+import {createTextObjects,createAnnotationTextObjects,textPaints} from './text-objects.js';
 import {FontResolver} from './font-resolver.js';
 import {applyExistingTextEdits} from './existing-text-export.js';
 const standalone=globalThis.__PDF_STUDIO_STANDALONE__;
@@ -41,8 +41,11 @@ export class DocumentStore {
     const source=this.sources.get(ref.sourceId);
     if(!source.textObjects.has(ref.sourcePage))source.textObjects.set(ref.sourcePage,(async()=>{
       const page=await this.page(ref);
-      const [content,operators,inspection]=await Promise.all([page.getTextContent(),page.getOperatorList(),this.fontInspection(ref.sourceId,ref.sourcePage-1)]);
-      return createTextObjects(content,{sourceId:ref.sourceId,pageIndex:ref.sourcePage-1,fontMap:matchPdfFonts(inspection,operators,pdfjs.OPS),paintFor:textPaints(operators,pdfjs.OPS)});
+      const [content,operators,inspection,annotations]=await Promise.all([page.getTextContent(),page.getOperatorList(),this.fontInspection(ref.sourceId,ref.sourcePage-1),page.getAnnotations({intent:'display'})]);
+      const annotationObjects=createAnnotationTextObjects(annotations,{sourceId:ref.sourceId,pageIndex:ref.sourcePage-1});
+      const originalAnnots=(await source.libDocument).getPage(ref.sourcePage-1).node.Annots();
+      for(const item of annotationObjects)item.annotationIndex=originalAnnots?.asArray().findIndex(entry=>entry.objectNumber===item.annotationRef.objectNumber&&entry.generationNumber===item.annotationRef.generationNumber)??-1;
+      return [...createTextObjects(content,{sourceId:ref.sourceId,pageIndex:ref.sourcePage-1,fontMap:matchPdfFonts(inspection,operators,pdfjs.OPS),paintFor:textPaints(operators,pdfjs.OPS)}),...annotationObjects.filter(item=>item.annotationIndex>=0)];
     })().catch(error=>{source.textObjects.delete(ref.sourcePage);throw error;}));
     const originals=await source.textObjects.get(ref.sourcePage);
     return originals.map(item=>ref.textEdits?.[item.id]||item);

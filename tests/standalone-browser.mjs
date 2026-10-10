@@ -11,6 +11,7 @@ const isolated=resolve('tests/output/standalone-isolated/editor.html');
 await copyFile('PDF-Studio-standalone.html',isolated);
 const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica);
 for(let i=0;i<2;i++){const page=doc.addPage([500,650]);page.drawText('Voltage: 24V',{x:45,y:550,size:20,font,color:rgb(.1,.2,.7)});if(i)page.setRotation(degrees(90));}
+doc.getPage(0).node.set(PDFName.of('Annots'),doc.context.obj([doc.context.register(doc.context.obj({Type:'Annot',Subtype:'FreeText',Rect:[45,440,245,490],Contents:PDFString.of('Acrobat box'),DA:PDFString.of('/Helvetica 12 Tf 0 g')}))]));
 await writeFile('tests/output/standalone-input.pdf',await doc.save());
 // No ToUnicode or embedded program: the worker needs the bundled Japanese CMaps.
 const cjk=await PDFDocument.create(),cjkPage=cjk.addPage([400,600]);
@@ -60,25 +61,33 @@ try{
   await page.evaluate(()=>{globalThis.savedPageCard=document.querySelector('.page');globalThis.savedThumb=globalThis.savedPageCard.querySelector('canvas');});
   assert.equal(await page.locator('#zoom').inputValue(),'width');
   assert.equal(await page.locator('#pages').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),1);
+  await page.locator('#existing-font').selectOption('times-new-roman');
   await page.locator('#existing-content').fill('Voltage: 12V');await page.locator('#existing-apply').click();
   assert.ok(await page.evaluate(()=>globalThis.savedPageCard===document.querySelector('.page')&&globalThis.savedThumb===document.querySelector('.page canvas')));
   await page.getByRole('button',{name:'既存文字: Voltage: 12V',exact:true}).waitFor();
   await page.locator('#undo').click();await page.getByRole('button',{name:'既存文字: Voltage: 24V',exact:true}).waitFor();
   await page.locator('#redo').click();await page.getByRole('button',{name:'既存文字: Voltage: 12V',exact:true}).waitFor();
+  await page.getByRole('button',{name:'既存文字: Acrobat box',exact:true}).click();
+  await page.locator('#existing-font').selectOption('meiryo-ui');
+  await page.locator('#existing-content').fill('Edited box\nSecond line');await page.locator('#existing-apply').click();
+  await page.getByRole('button',{name:'既存文字: Edited box Second line',exact:true}).waitFor();
   await page.locator('#editor-tab-text').click();
   const options=await page.locator('#text-font option').evaluateAll(options=>options.map(option=>option.value));
+  assert.ok(options.includes('meiryo-ui'));assert.ok(options.includes('times-new-roman'));
+  assert.equal(await page.locator('#local-font-open, #existing-local-font-open, #local-font-dialog').count(),0);
   for(const id of options)for(const bold of [false,true]){
     await page.locator('.page-stage>canvas').click({position:{x:10,y:10}});
     await page.locator('#text-font').selectOption(id);await page.locator('#text-bold').setChecked(bold);
     await page.locator('#text-add').click();const editor=page.locator('.inline-text-editor');await editor.waitFor();
-    await editor.fill(`日本語 ${id} ${bold?'Bold':'Regular'}`);await editor.press('Control+Enter');
+    await editor.fill(`${id==='times-new-roman'?'English':'日本語'} ${id} ${bold?'Bold':'Regular'}`);await editor.press('Control+Enter');
   }
   await page.locator('#editor-tab-shape').click();await page.locator('#shape-add').click();await page.waitForSelector('.shape-object');
   const png=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=20;canvas.height=20;canvas.getContext('2d').fillRect(0,0,20,20);return canvas.toDataURL().split(',')[1];});
   await page.locator('#image-file').setInputFiles({name:'sample.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
-  await page.waitForFunction(()=>document.querySelectorAll('.image-object').length===14);
+  await page.waitForFunction(count=>document.querySelectorAll('.image-object').length===count,options.length*2+2);
   const download=page.waitForEvent('download');await page.locator('#save').click();await(await download).saveAs('tests/output/standalone-edited.pdf');
   const output=await readFile('tests/output/standalone-edited.pdf');
+  const savedDocument=await PDFDocument.load(output);assert.equal(savedDocument.getPage(0).node.Annots().size(),0);
   const content=await page.evaluate(async bytes=>{
     const {getDocument}=await import('pdf-studio/vendor/pdfjs/build/pdf.mjs');
     const runtime=globalThis.__PDF_STUDIO_STANDALONE__,pdf=await getDocument({data:new Uint8Array(bytes),cMapUrl:runtime.assetsBase+'cmaps/',cMapPacked:true,standardFontDataUrl:runtime.assetsBase+'standard_fonts/',wasmUrl:runtime.assetsBase+'wasm/',useWorkerFetch:true,useSystemFonts:false}).promise;
@@ -88,8 +97,9 @@ try{
     return {count:pdf.numPages,text:items.map(item=>item.str).join(''),rotation:(await pdf.getPage(2)).rotate};
   },[...output]);
   assert.equal(content.count,2);assert.equal(content.rotation,90);assert.ok(content.text.includes('Voltage: 12V'));
-  for(const id of options)for(const weight of ['Regular','Bold'])assert.ok(content.text.includes(`日本語 ${id} ${weight}`));
+  assert.ok(content.text.includes('Edited box'));assert.ok(content.text.includes('Second line'));
+  for(const id of options)for(const weight of ['Regular','Bold'])assert.ok(content.text.includes(`${id==='times-new-roman'?'English':'日本語'} ${id} ${weight}`));
   await page.screenshot({path:'tests/output/standalone-editor.png'});
   assert.deepEqual(remote,[],'no HTTP requests, even for PDF decoder assets');assert.deepEqual(extraFiles,[],'no sibling files read');assert.deepEqual(errors,[]);
-  console.log('PASS: isolated file:// HTML, offline, real Worker, Japanese CMaps, embedded WASM/fallback, 12 fonts, existing edits/history, images/shapes, PDF save/render, theme/licenses; no external requests or console errors');
+  console.log('PASS: isolated file:// HTML, offline, real Worker, Japanese CMaps, embedded WASM/fallback, 16 fonts including Meiryo UI and Times New Roman, existing edits/history, images/shapes, PDF save/render, theme/licenses; no external requests or console errors');
 }finally{await browser.close();}

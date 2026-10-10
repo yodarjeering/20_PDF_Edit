@@ -1,7 +1,11 @@
-# Embedded Japanese fonts
+# Embedded fonts
 
 Six families, each in Regular and Bold. All originals are unmodified and
 redistributed under SIL Open Font License 1.1 with their copyright notices.
+
+The catalog additionally includes locally sourced Meiryo UI and Times New Roman,
+each in Regular and Bold, for a total of eight families / sixteen font variants.
+See Windows-Fonts-NOTICE.md for those four fonts; they are not SIL OFL fonts.
 
 | Family | Official source | License file |
 | --- | --- | --- |

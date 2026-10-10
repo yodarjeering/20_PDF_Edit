@@ -32,7 +32,8 @@ export class FontResolver{
     }
     const bold=/bold|black|heavy|demi|semibold/i.test(object.normalizedFontName);
     const serif=!/sans|gothic|ゴシック/i.test(object.normalizedFontName)&&/serif|mincho|明朝|times/i.test(object.normalizedFontName);
-    const candidates=choice==='auto'?[serif?'noto-serif':defaultFontId,...fontCatalog.filter(font=>!font.local).map(font=>font.id)]:[choice];
+    const matchedFamily=/meiryoui/i.test(object.normalizedFontName)?'meiryo-ui':/timesnewroman/i.test(object.normalizedFontName)?'times-new-roman':null;
+    const candidates=choice==='auto'?[...(matchedFamily?[matchedFamily]:[]),serif?'noto-serif':defaultFontId,...fontCatalog.map(font=>font.id)]:[choice];
     for(const fontId of new Set(candidates)){
       await ensureTextFonts(fontId,bold);const font=textFont(bold,fontId);
       if(canRender(font.parsed,newText))return {kind:'builtin',key:`builtin:${fontId}:${bold}`,bytes:font.bytes,fontId,bold,label:fontCatalog.find(font=>font.id===fontId).label,reason:choice==='auto'?reason:'指定したフォントを使用します。'};
@@ -49,6 +50,7 @@ export class FontResolver{
     const font=cache.get(resolution.key);font.encodeText(text);return font;
   }
   async prepare(document,object,text=object.text){
+    if(object.annotationKind==='FreeText')text=text.replace(/\r\n?|\n/g,'');
     let resolution=await this.resolveFont(object,text);
     try{return {resolution,font:await this.embed(document,resolution,text)};}
     catch(error){

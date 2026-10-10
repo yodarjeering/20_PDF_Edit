@@ -6,7 +6,7 @@ HTML / CSS / JavaScriptのみの、ローカルPDFページ編集アプリです
 
 `PDF-Studio-standalone.html` をEdgeまたはChromeで直接開いてください。このHTMLだけを別フォルダー・別PCへコピーして実行でき、Node.js、ローカルサーバー、外部CDN、隣接する `js/`・`vendor/` フォルダーは不要です。PDFは「PDFを開く」またはドラッグ＆ドロップで読み込みます。
 
-PDF.js本体・Worker、pdf-lib、fontkit、CMaps、標準フォント、WASMとOpenJPEGのJSフォールバック、追加文字用12フォントを埋め込んでいます。ファイルは約81 MiBです。フォントは使用時に復号します。同梱ライセンスは右上の「ライセンス」から確認できます。
+PDF.js本体・Worker、pdf-lib、fontkit、CMaps、標準フォント、WASMとOpenJPEGのJSフォールバック、追加文字用16フォントを埋め込んでいます。ファイルは約76 MiBです。フォントはgzip圧縮してBase64形式で埋め込み、使用時にブラウザ内で展開します。同梱ライセンスは右上の「ライセンス」から確認できます。
 
 編集機能とOverlay方式の制限は通常版と共通です。編集内容はブラウザのメモリに保持されるため、終了前にPDFを保存してください。クリップボードなどブラウザ固有の操作はブラウザ・OSの権限に従います。
 
@@ -17,9 +17,11 @@ npm run build:standalone
 npm run test:standalone
 ```
 
+生成時に100 MiB以上になる場合は、GitHubのファイルサイズ上限を超えないようビルドをエラーで停止します。圧縮フォントはEdge / ChromeのDecompressionStreamで展開し、外部通信や追加ファイルを必要としません。
+
 生成処理は `scripts/build-standalone.mjs`、埋め込みデータの初期化は `scripts/standalone-bootstrap.js` です。PDF.jsのWorkerは `file://` でも動くClassic Blob Workerへ変換し、`workerPort` で接続します。PDF.js更新時は変換箇所の検証に失敗した場合にビルドを止める構成です。開発用 `index.html` は引き続き下記のサーバー方式で使用します。
 
-`tests/standalone-browser.mjs` はHTMLだけを隔離フォルダーへコピーして `file://` で開き、ネットワークをオフにしたEdgeで日本語CMap、実Worker、画像デコーダー、12フォント、既存文字・画像・図形編集、Undo/Redo、PDF保存と再描画を検証します。外部通信・他のローカルファイルへのアクセスがないことも確認します。
+`tests/standalone-browser.mjs` はHTMLだけを隔離フォルダーへコピーして `file://` で開き、ネットワークをオフにしたEdgeで日本語CMap、実Worker、画像デコーダー、16フォント、既存文字・画像・図形編集、Undo/Redo、PDF保存と再描画を検証します。外部通信・他のローカルファイルへのアクセスがないことも確認します。
 
 ## 開発版の起動
 
@@ -155,16 +157,14 @@ node tests/existing-text-browser.mjs
 ### 検索可能な文字出力とフォント
 
 - `js/fonts.js` が同梱フォントの読み込み、対応文字検証、共通の文字幅を管理します。行分割・揃え・ベースラインを画面とPDF出力で共有します。
-- `vendor/fonts/` に日本語6書体の標準・太字（計12フォント）と各OFLライセンス、`vendor/fontkit/` に@pdf-lib/fontkit 1.1.1を同梱しています。標準・太字の全フォントデータをbase64のJavaScriptモジュールとして内部に同梱し、その書体・太さが初めて使われるときだけ復号します（元OTFへのfetchは不要）。`node scripts/embed-fonts.mjs` で元OTFから再生成できます。アプリ使用時の外部通信はありません。
+- `vendor/fonts/` に8書体の標準・太字（計16フォント）と各ライセンス・出典情報、`vendor/fontkit/` に@pdf-lib/fontkit 1.1.1を同梱しています。標準・太字の全フォントデータをbase64のJavaScriptモジュールとして内部に同梱し、その書体・太さが初めて使われるときだけ復号します（元OTFへのfetchは不要）。`node scripts/embed-fonts.mjs` で元OTFから再生成できます。アプリ使用時の外部通信はありません。
 - 現在のフォントで表示できない文字はエラー表示します。絵文字や複雑な文字組み、縦書きは検証対象外です。既に画像化された文字やスクリーンショットのOCRには対応していません。
-- 同梱書体はNoto Sans JP、Noto Serif JP、M PLUS Rounded 1c、BIZ UDPGothic、BIZ UDPMincho、Zen Kaku Gothic Newです。各ボックスに書体を保持し、コピー・回転・Undo / Redo・PDF保存でも維持します。追加フォントの生成は `js/fonts.js` のカタログと `scripts/embed-fonts.mjs` を使用します。
-- `node tests/text-browser.mjs` で直接入力、確定・取消、IMEイベント中のキー処理、保存直前の確定、画面サイズ変更時の入力保持、未対応文字の復帰、元バイナリ取得なしでの12フォント利用、検索可能なPDF出力を確認できます。実OSのIME候補ウィンドウ操作は自動テスト対象外です。
+- 同梱書体はNoto Sans JP、Noto Serif JP、M PLUS Rounded 1c、BIZ UDPGothic、BIZ UDPMincho、Zen Kaku Gothic New、Meiryo UI、Times New Romanです。各ボックスに書体を保持し、コピー・回転・Undo / Redo・PDF保存でも維持します。追加フォントの生成は `js/fonts.js` のカタログと `scripts/embed-fonts.mjs` を使用します。
+- `node tests/text-browser.mjs` で直接入力、確定・取消、IMEイベント中のキー処理、保存直前の確定、画面サイズ変更時の入力保持、未対応文字の復帰、元バイナリ取得なしでの16フォント利用、検索可能なPDF出力を確認できます。実OSのIME候補ウィンドウ操作は自動テスト対象外です。
 - 保存PDFからPDF.jsで「日本語の文字」「編集したテキスト」を抽出し、元の文字列と一致することを確認しました。太字・回転ページ上の位置と色も確認済みです。
 
-## Windowsのローカルフォント
+## 内蔵フォントの追加
 
-「テキスト」または「既存文字」パネルの「Windowsフォントを追加」から許可の説明画面を開けます。「アクセスを許可して一覧を取得」をクリックした時だけ Local Font Access API (`queryLocalFonts`) でブラウザの許可を求めます。許可後に検索・選択して「編集用に追加」を押すと、選んだ書体のバイナリだけを読み込みます。追加した書体は両方の編集パネルで選択でき、PDF出力にサブセット埋め込みします。太字・斜体はそれぞれの書体を選んでください。
+Meiryo UIとTimes New Romanの標準・太字をBase64形式で同梱しています。「テキスト」と「既存文字」のフォント一覧から選択できます。Windowsフォントへのアクセス許可や追加操作は不要です。Windowsのローカルフォント追加機能は削除しました。Times New Romanで日本語は表示できないため、日本語にはMeiryo UIなどを選択してください。
 
-Chrome / Edgeのデスクトップ版を使用してください。`file://` で利用が拒否された場合は `node server.mjs` を起動し、`http://127.0.0.1:8080` を直接開いてください。非対応・許可拒否の場合も内蔵フォントの編集は続けられます。フォント一覧とデータは外部送信せず、再読み込み後には保持しません。ブラウザの許可を取り消す場合はサイト設定の「ローカルフォント」をブロックしてください。
-
-読み込んだ書体は描画・PDF埋め込みを確認してから追加します。コレクションなど未対応の形式、OS/2の埋め込み制限・サブセット禁止・ビットマップのみの指定がある書体は追加できません。技術的な確認はライセンスの許諾を保証するものではありません。各フォントの利用条件に従ってください。
+Meiryo UIはmeiryo.ttc / meiryob.ttcから該当書体を抽出し、Times New Romanはtimes.ttf / timesbd.ttfを使用しています。生成スクリプトは scripts/import-windows-fonts.py です。元フォントの情報は vendor/fonts/Windows-Fonts-NOTICE.md を参照してください。

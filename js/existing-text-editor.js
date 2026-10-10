@@ -43,7 +43,7 @@ export class ExistingTextEditor{
     $('existing-content').value=object.text;$('existing-font').value=object.fontChoice||'auto';$('existing-size').value=object.fontSize;
     $('existing-color').value=object.color||'#000000';$('existing-background').value=object.background||'#ffffff';
     $('existing-info').textContent=`Font: ${object.normalizedFontName}\nOriginal Font: ${object.originalFontIdentified?object.fontName:'未特定（PDF.js ID: '+object.pdfjsFontName+'）'}\n元サイズ: ${object.originalFontSize.toFixed(3)} pt · 座標: ${object.x.toFixed(2)}, ${object.y.toFixed(2)} · 元ページ: ${object.pageIndex+1}\nSource: Existing PDF · Edit mode: ${object.editMode==='unsupported'?'Unsupported':'Overlay'} · 埋め込み: ${object.embeddedFont?.kind||'なし／未特定'} · ${object.fontSubtype||'Font種別未特定'}${object.hasToUnicode?' · ToUnicodeあり':''}`;
-    $('existing-state').textContent=object.unsupportedReason||(object.resolvedFont?`使用フォント: ${object.resolvedFont.label} — ${object.resolvedFont.reason}`:object.color?'文字列を変更し「変更を適用」を押してください。':'元の文字色を特定できません。文字色を選択してから適用してください。');
+    $('existing-state').textContent=object.unsupportedReason||(object.annotationKind==='FreeText'?'テキストボックス注釈：保存時に元の注釈を除去し、本文の文字に変換します。背景色・フォント・改行位置・装飾は元と異なる場合があります。':object.resolvedFont?`使用フォント: ${object.resolvedFont.label} — ${object.resolvedFont.reason}`:object.color?'文字列を変更し「変更を適用」を押してください。':'元の文字色を特定できません。文字色を選択してから適用してください。');
     this.layer?.querySelectorAll('.existing-text-hit').forEach(button=>button.classList.toggle('selected',button.dataset.textId===object.id));
     this.onSelect?.();this.setBusy(this.busy);if(focus&&!$('existing-content').disabled)$('existing-content').focus();
   }

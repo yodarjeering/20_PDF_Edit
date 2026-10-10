@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {PageModel} from '../js/model.js';
 import {tokenizeContent,analyzeContent,directEditStrategy} from '../js/pdf-content.js';
 import {normalizeFontName,matchPdfFonts} from '../js/pdf-fonts.js';
-import {createTextObjects,textGeometry,multiplyMatrices} from '../js/text-objects.js';
+import {createTextObjects,createAnnotationTextObjects,textGeometry,multiplyMatrices} from '../js/text-objects.js';
 import {base64ToBytes,registerEmbeddedFont,fontCatalog} from '../js/fonts.js';
 import {canRender} from '../js/font-resolver.js';
-import {validateExistingEdit} from '../js/existing-text-export.js';
+import {validateExistingEdit,applyExistingTextEdits} from '../js/existing-text-export.js';
+import {createRequire} from 'node:module';
 
 test('existing text edits retain originals, survive history and are independent in copied pages',()=>{
   const model=new PageModel();model.add([{id:'page',sourceId:'source',sourcePage:1,rotation:0}]);
@@ -56,4 +57,33 @@ test('unsafe overlay data fails closed before writing a PDF',()=>{
   assert.throws(()=>validateExistingEdit({...item,color:null}),/文字色/);
   assert.throws(()=>validateExistingEdit({...item,editMode:'unsupported'}),/安全/);
   assert.throws(()=>validateExistingEdit({...item,transform:[0,0,0,0,30,40]}),/座標/);
+});
+test('FreeText annotations are extracted and replaced after page reference renumbering',async()=>{
+  const require=createRequire(import.meta.url);
+  const lib=require((process.env.PDF_TEST_RUNTIME||'C:/Users/Owner/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules')+'/pdf-lib');
+  globalThis.PDFLib=lib;
+  globalThis.DOMMatrix=require((process.env.PDF_TEST_RUNTIME||'C:/Users/Owner/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules')+'/@napi-rs/canvas').DOMMatrix;
+  // Bundled PDF.js targets newer browsers than the test runner's Node version.
+  if(!Uint8Array.prototype.toHex)Object.defineProperty(Uint8Array.prototype,'toHex',{value(){return Buffer.from(this).toString('hex');},configurable:true});
+  const {getDocument}=await import('../vendor/pdfjs/build/pdf.mjs');
+  const original=await lib.PDFDocument.create(),page=original.addPage([400,500]);
+  const annotation=original.context.register(original.context.obj({Type:'Annot',Subtype:'FreeText',Rect:[40,300,240,360],Contents:lib.PDFString.of('First\nSecond'),DA:lib.PDFString.of('/Helv 12 Tf 0 g')}));
+  const note=original.context.register(original.context.obj({Type:'Annot',Subtype:'Text',Rect:[10,10,30,30],Contents:lib.PDFString.of('Keep note')}));
+  page.node.set(lib.PDFName.of('Annots'),original.context.obj([annotation,note]));
+  const reader=await getDocument({data:await original.save(),isOffscreenCanvasSupported:false}).promise;
+  try{
+    const annotations=await(await reader.getPage(1)).getAnnotations();
+    const objects=createAnnotationTextObjects(annotations,{sourceId:'doc',pageIndex:0});
+    assert.equal(objects.length,1);assert.equal(objects[0].text,'First\nSecond');
+    assert.equal(textGeometry(objects[0]).height,60);
+    const output=await lib.PDFDocument.create();output.addPage();
+    const [copy]=await output.copyPages(original,[0]);output.addPage(copy);
+    const item={...objects[0],annotationIndex:0,isModified:true,text:'Edited\nSecond'};
+    await applyExistingTextEdits(copy,{[item.id]:item},{prepare:async document=>({font:await document.embedFont(lib.StandardFonts.Helvetica)})});
+    assert.equal(copy.node.Annots().size(),1);
+    assert.equal(output.context.lookup(copy.node.Annots().get(0)).get(lib.PDFName.of('Subtype')).toString(),'/Text');
+    const saved=await getDocument({data:await output.save()}).promise;
+    try{assert.match((await(await saved.getPage(2)).getTextContent()).items.map(item=>item.str).join(' '),/Edited.*Second/);}finally{await saved.destroy();}
+    assert.equal(createAnnotationTextObjects([{...annotations.find(a=>a.subtype==='FreeText'),annotationFlags:2}],{sourceId:'doc',pageIndex:0}).length,0);
+  }finally{await reader.destroy();}
 });

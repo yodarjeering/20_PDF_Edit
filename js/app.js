@@ -1,5 +1,4 @@
 import {ExistingTextEditor} from './existing-text-editor.js';
-import {setupLocalFonts} from './local-fonts.js';
 import {ensureTextFonts,validateText,fontCatalog,defaultFontId} from './fonts.js';
 import {fitText} from './text.js';
 import {ImageOverlay,readImage} from './images.js';
@@ -24,7 +23,7 @@ const existingEditor=new ExistingTextEditor({store,
   commit:(pageId,object)=>{model.updateTextObject(pageId,object);previewKey='';},
   reset:(pageId,id)=>{model.resetTextObject(pageId,id);previewKey='';},
   select:()=>overlay.choose(null)});
-function controls(){existingEditor.setBusy(busy||activeTab!=='output');const readonly=activeTab!=='output';$('text-bold').disabled=busy||readonly||fontCatalog.some(font=>font.id===$('text-font').value&&font.local);for(const id of ['text-add','text-font','text-size','text-color','text-bold','text-align','shape-width-custom'])$(id).disabled=busy||readonly;document.querySelectorAll('.shape-pictogram').forEach(button=>button.disabled=busy||readonly);$('shape-add').disabled=busy||readonly;$('object-rotate').disabled=busy||readonly||!overlay.selected;for(const id of ['shape-kind','shape-stroke','shape-fill','shape-no-fill','shape-width'])$(id).disabled=busy||readonly;$('image-add').disabled=busy||readonly;$('image-delete').disabled=busy||readonly||!overlay.selected;for(const id of ['open','add','all','go'])$(id).disabled=busy;for(const id of ['delete','left','right'])$(id).disabled=busy||readonly||!model.selected.size;$('undo').disabled=busy||readonly||!model.past.length;$('redo').disabled=busy||readonly||!model.future.length;$('save').disabled=busy||!model.pages.length;}
+function controls(){existingEditor.setBusy(busy||activeTab!=='output');const readonly=activeTab!=='output';$('text-bold').disabled=busy||readonly;for(const id of ['text-add','text-font','text-size','text-color','text-bold','text-align','shape-width-custom'])$(id).disabled=busy||readonly;document.querySelectorAll('.shape-pictogram').forEach(button=>button.disabled=busy||readonly);$('shape-add').disabled=busy||readonly;$('object-rotate').disabled=busy||readonly||!overlay.selected;for(const id of ['shape-kind','shape-stroke','shape-fill','shape-no-fill','shape-width'])$(id).disabled=busy||readonly;$('image-add').disabled=busy||readonly;$('image-delete').disabled=busy||readonly||!overlay.selected;for(const id of ['open','add','all','go'])$(id).disabled=busy;for(const id of ['delete','left','right'])$(id).disabled=busy||readonly||!model.selected.size;$('undo').disabled=busy||readonly||!model.past.length;$('redo').disabled=busy||readonly||!model.future.length;$('save').disabled=busy||!model.pages.length;}
 async function run(fn){if(busy)return;busy=true;controls();try{await existingEditor.apply();await fn();}catch(e){status(e.message,true);}finally{busy=false;controls();}}
 const observer=new IntersectionObserver(entries=>{for(const entry of entries){const card=entry.target;if(entry.isIntersecting){if(!card.dataset.queued){card.dataset.queued='1';queue.push(card);}}else{card.querySelector('.thumb').replaceChildren();delete card.dataset.queued;}}pump();},{root:$('pages'),rootMargin:'200px'});
 async function pump(){if(running)return;running=true;try{while(queue.length){const card=queue.shift();if(!card.isConnected||!card.dataset.queued)continue;const ref=view().pages.find(p=>p.id===card.dataset.id);if(!ref)continue;const canvas=document.createElement('canvas');card.querySelector('.thumb').replaceChildren(canvas);try{await renderer.render(ref,canvas,132,155,{images:false});}catch(e){if(card.isConnected){card.querySelector('.thumb').textContent='描画できません';status(`ページ描画エラー: ${e.message}`,true);}}}}finally{running=false;}}
@@ -232,10 +231,10 @@ for(const button of document.querySelectorAll('.shape-pictogram')){
 function syncTextControls(){
   const item=selectedObject();
   if(activeTab!=='output'||item?.type!=='text')return;
-  $('text-font').value=item.fontId||defaultFontId;$('text-size').value=item.fontSize;$('text-color').value=item.color;$('text-bold').checked=item.bold;$('text-bold').disabled=busy||fontCatalog.some(font=>font.id===$('text-font').value&&font.local);$('text-align').value=item.align;
+  $('text-font').value=item.fontId||defaultFontId;$('text-size').value=item.fontSize;$('text-color').value=item.color;$('text-bold').checked=item.bold;$('text-bold').disabled=busy;$('text-align').value=item.align;
 }
 function textValues(){
-  return {fontId:$('text-font').value,fontSize:Number($('text-size').value),color:$('text-color').value,bold:fontCatalog.some(font=>font.id===$('text-font').value&&font.local)?false:$('text-bold').checked,align:$('text-align').value};
+  return {fontId:$('text-font').value,fontSize:Number($('text-size').value),color:$('text-color').value,bold:$('text-bold').checked,align:$('text-align').value};
 }
 function commitInlineText(pageId,id,text){
   const item=model.pages.find(page=>page.id===pageId)?.images?.find(item=>item.id===id);
@@ -249,12 +248,6 @@ function commitInlineText(pageId,id,text){
   status('テキストを更新しました。');
 }
 for(const font of fontCatalog){const option=document.createElement('option');option.value=font.id;option.textContent=font.label;$('text-font').append(option);}
-setupLocalFonts({isBusy:()=>busy,onAdded:font=>{
-  for(const id of ['text-font','existing-font']){
-    if([...$(id).options].some(option=>option.value===font.id))continue;
-    const option=document.createElement('option');option.value=font.id;option.textContent=font.label;$(id).append(option);
-  }
-}});
 $('text-add').onclick=()=>{
   if(activeTab!=='output'||!$('text-size').reportValidity())return;
   const values=textValues();
@@ -268,7 +261,7 @@ $('text-add').onclick=()=>{
   });
 };
 for(const id of ['text-font','text-size','text-color','text-bold','text-align'])$(id).addEventListener('change',()=>{
-  const local=fontCatalog.some(font=>font.id===$('text-font').value&&font.local);if(local)$('text-bold').checked=false;$('text-bold').disabled=busy||activeTab!=='output'||local;
+  $('text-bold').disabled=busy||activeTab!=='output';
   const item=selectedObject();
   if(busy||activeTab!=='output'||item?.type!=='text'||!$('text-size').reportValidity())return;
   const values=textValues(),pageId=model.active;

@@ -1,6 +1,7 @@
 import {readFile,writeFile,readdir,stat} from 'node:fs/promises';
 import {posix,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {gzipSync} from 'node:zlib';
 import {fontCatalog} from '../js/fonts.js';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const read=(path)=>readFile(resolve(root,path));
@@ -28,7 +29,7 @@ for(const font of fontCatalog)for(const weight of ['Regular','Bold']){
   // Use existing embedded payloads verbatim; do not generate extra font variants.
   const data=(await source(`vendor/fonts/${name}.base64.js`)).match(/export default "([A-Za-z0-9+/=]+)";/)?.[1];
   if(!data)throw new Error(`Invalid font module: ${name}`);
-  resources.push(`<script type="application/octet-stream" id="font-${name}">${data}</script>\n`);
+  resources.push(payload(`font-${name}`,gzipSync(Buffer.from(data,'base64'),{level:9}),'data-compression="gzip"'));
 }
 let worker=await source('vendor/pdfjs/build/pdf.worker.mjs');
 // These two version-checked adapters cover synchronous ICC reads and dynamic
@@ -58,7 +59,7 @@ for(const path of modules){
   }).replace(/^\/\/# sourceMappingURL=.*$/gm,'');
   resources.push(payload('module-'+path.replaceAll('/','-'),code,`data-pdf-module="pdf-studio/${path}"`));
 }
-const licensePaths=['vendor/pdf-lib/LICENSE.md','vendor/fontkit/NOTICE.md','vendor/pdfjs/LICENSE'];
+const licensePaths=['vendor/pdf-lib/LICENSE.md','vendor/fontkit/NOTICE.md','vendor/pdfjs/LICENSE','vendor/fonts/Windows-Fonts-NOTICE.md'];
 for(const folder of ['vendor/fonts','vendor/pdfjs/cmaps','vendor/pdfjs/standard_fonts','vendor/pdfjs/wasm']){
   for(const name of (await readdir(resolve(root,folder))).sort())if(name.includes('LICENSE'))licensePaths.push(`${folder}/${name}`);
 }
@@ -75,5 +76,6 @@ html=html.replace("connect-src 'self' blob: data:","connect-src blob: data:").re
   .replace('準備完了</div>','起動しています…</div>')
   .replace('</body>',`${licenseDialog}\n${resources.join('')}<script>document.getElementById('standalone-licenses').onclick=()=>document.getElementById('license-dialog').showModal();\n${inlineScript(await source('scripts/standalone-bootstrap.js'))}</script></body>`);
 if(/<script[^>]+src=|<link[^>]+rel="stylesheet"/i.test(html))throw new Error('Standalone HTML still has external scripts or styles.');
+if(Buffer.byteLength(html)>=100*1024*1024)throw new Error('Standalone HTML exceeds GitHub 100 MiB limit. Review embedded resources before committing.');
 const output=resolve(root,'PDF-Studio-standalone.html');await writeFile(output,html);
 console.log(`${output}\n${((await stat(output)).size/1024/1024).toFixed(1)} MiB; ${fontCatalog.length*2} fonts; ${modules.length} modules; all resources embedded.`);
