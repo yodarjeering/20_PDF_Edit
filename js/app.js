@@ -15,7 +15,7 @@ const sourceViews=new Map();
 const documentColors=new Map();
 const view=()=>activeTab==='output'?model:sourceViews.get(activeTab);
 let busy=false, mode='open', dragged=[], previewKey='', revision=0, queue=[], running=false;
-let zoom='width';
+let zoom='1';
 let pageListKey='';
 const overlay=new ImageOverlay({commit:(pageId,imageId,changes)=>{if(busy||activeTab!=='output')return;model.updateImage(pageId,imageId,changes.type==='text'?fitText(changes):changes);previewKey='';refresh();status('オブジェクトの位置・サイズを変更しました。');},select:id=>{$('image-delete').disabled=busy||activeTab!=='output'||!id;$('object-rotate').disabled=busy||activeTab!=='output'||!id;syncShapeControls();syncTextControls();},commitText:commitInlineText,error:error=>status(error.message,true)});
 const status=(message,error=false)=>{$('status').textContent=message;$('status').classList.toggle('error',error);};
@@ -30,7 +30,7 @@ async function pump(){if(running)return;running=true;try{while(queue.length){con
 function updateSelection(){document.querySelectorAll('.page').forEach(card=>{card.classList.toggle('selected',view().selected.has(card.dataset.id));card.classList.toggle('active',view().active===card.dataset.id);card.setAttribute('aria-selected',String(view().selected.has(card.dataset.id)));});$('selection').textContent=`${view().selected.size} ページ選択中` ;controls();preview();}
 function refresh(){const listKey=JSON.stringify([activeTab,view().pages.map(ref=>[ref.id,ref.rotation])]);if(listKey===pageListKey){updateSelection();return;}renderTabs();pageListKey=JSON.stringify([activeTab,view().pages.map(ref=>[ref.id,ref.rotation])]);revision++;observer.disconnect();queue=[];$('pages').replaceChildren();const fragment=document.createDocumentFragment();view().pages.forEach((ref,index)=>{const source=store.sources.get(ref.sourceId);const card=document.createElement('div');card.className='page';card.dataset.id=ref.id;card.draggable=activeTab==='output';card.tabIndex=0;card.setAttribute('role','option');card.setAttribute('aria-label',`${index+1}ページ、${source.name} 元ページ${ref.sourcePage}`);
 const thumb=document.createElement('div');thumb.className='thumb';thumb.textContent='描画待ち';const info=document.createElement('div');info.className='page-info';info.textContent=`${index+1} ページ`;const badge=document.createElement('span');badge.className='badge';badge.textContent=`↻ ${ref.rotation}°`;info.append(badge);const origin=document.createElement('div');origin.className='origin';origin.textContent=`${source.name} · ${ref.sourcePage}`;origin.title=origin.textContent;card.append(thumb,info,origin);fragment.append(card);});$('pages').append(fragment);document.querySelectorAll('.page').forEach(card=>observer.observe(card));$('count').textContent=view().pages.length;$('jump').max=view().pages.length;updateSelection();store.collect(model,pageClipboard.map(page=>page.sourceId)).then(()=>{for(const id of sourceViews.keys())if(!store.sources.has(id))sourceViews.delete(id);}).catch(e=>status(e.message,true));}
-async function preview(force=false){if(overlay.editing&&!overlay.finishTextEditing())return;const ref=view().pages.find(p=>p.id===view().active);const key=ref?`${ref.id}:${ref.rotation}`:'empty:'+model.documentIds.join(',');if(!force&&key===previewKey)return;previewKey=key;if(!ref){existingEditor.clear();overlay.choose(null);$('preview').replaceChildren();const empty=document.createElement('div');empty.className='empty';const title=document.createElement('h2');title.textContent='編集結果は空です';const hint=document.createElement('p');hint.textContent=model.documentIds.length?'各PDFタブでページをコピー（Ctrl+C）し、この編集結果に貼り付け（Ctrl+V）してください。':'PDFを開くか、ここへドラッグ＆ドロップしてください。';empty.append(title,hint);$('preview').append(empty);$('preview-title').textContent='プレビュー';$('source-label').textContent='保存するページを編集結果へ追加してください。';return;}if(!(ref.images||[]).some(image=>image.id===overlay.selected))overlay.choose(null);const canvas=document.createElement('canvas');const stage=document.createElement('div');stage.className='page-stage';stage.append(canvas);$('preview').replaceChildren(stage);$('preview-title').textContent=`${store.sources.get(ref.sourceId).name} · ${view().pages.indexOf(ref)+1} / ${view().pages.length}`;$('source-label').textContent=`${store.sources.get(ref.sourceId).name} · 元ページ ${ref.sourcePage}`;try{const viewport=await renderer.render(ref,canvas,Math.max(100,$('preview').clientWidth-32),zoom==='width'?Infinity:Math.max(100,$('preview').clientHeight-32),{images:false,scale:['fit','width'].includes(zoom)?null:Number(zoom)});if(stage.isConnected&&viewport){stage.style.width=viewport.width+'px';stage.style.height=viewport.height+'px';if(activeTab==='output'){overlay.mount(stage,ref,viewport);await existingEditor.mount(stage,ref,viewport);}else existingEditor.clear();}}catch(e){if(canvas.isConnected)status(`プレビューエラー: ${e.message}`,true);}}
+async function preview(force=false){if(overlay.editing&&!overlay.finishTextEditing())return;const ref=view().pages.find(p=>p.id===view().active);const key=ref?`${ref.id}:${ref.rotation}`:'empty:'+model.documentIds.join(',');if(!force&&key===previewKey)return;previewKey=key;if(!ref){existingEditor.clear();overlay.choose(null);$('preview').replaceChildren();const empty=document.createElement('div');empty.className='empty';const title=document.createElement('h2');title.textContent='編集結果は空です';const hint=document.createElement('p');hint.textContent=model.documentIds.length?'各PDFタブでページをコピー（Ctrl+C）し、この編集結果に貼り付け（Ctrl+V）してください。':'PDFを開くか、ここへドラッグ＆ドロップしてください。';empty.append(title,hint);$('preview').append(empty);$('preview-title').textContent='プレビュー';$('source-label').textContent='保存するページを編集結果へ追加してください。';return;}if(!(ref.images||[]).some(image=>image.id===overlay.selected))overlay.choose(null);const canvas=document.createElement('canvas');const stage=document.createElement('div');stage.className='page-stage';stage.append(canvas);$('preview').replaceChildren(stage);$('preview-title').textContent=`${store.sources.get(ref.sourceId).name} · ${view().pages.indexOf(ref)+1} / ${view().pages.length}`;$('source-label').textContent=`${store.sources.get(ref.sourceId).name} · 元ページ ${ref.sourcePage}`;try{const viewport=await renderer.render(ref,canvas,Math.max(100,$('preview').clientWidth-32),zoom==='width'?Infinity:Math.max(100,$('preview').clientHeight-32),{images:false,scale:['fit','width'].includes(zoom)?null:Number(zoom)});if(stage.isConnected&&viewport){stage.dataset.scale=String(viewport.scale);stage.style.width=viewport.width+'px';stage.style.height=viewport.height+'px';if(activeTab==='output'){overlay.mount(stage,ref,viewport);await existingEditor.mount(stage,ref,viewport);}else existingEditor.clear();}}catch(e){if(canvas.isConnected)status(`プレビューエラー: ${e.message}`,true);}}
 async function load(files,replace){if(!files.length)return;await run(async()=>{status('PDFを読み込んでいます…');const before=new Set(store.sources.keys());const pages=[];try{for(const file of files){if(!file.name.toLowerCase().endsWith('.pdf')&&file.type!=='application/pdf')throw new Error('PDFファイルを選択してください。');pages.push(...await store.load(file));}}catch(e){await store.discard([...store.sources.keys()].filter(id=>!before.has(id)));throw e;}model.add(pages,replace,!(replace&&files.length>1));activeTab='output';previewKey='';refresh();status(`${files.length} ファイル・${pages.length} ページを読み込みました。`);});}
 $('open').onclick=()=>{mode='open';$('file').click();};$('add').onclick=()=>{mode='add';$('file').click();};$('file').onchange=()=>{load([...$('file').files],mode==='open');$('file').value='';};
 for(const [id,action]of Object.entries({delete:()=>model.remove(),left:()=>model.rotate(-90),right:()=>model.rotate(90),undo:()=>model.undo(),redo:()=>model.redo()}))$(id).onclick=()=>{if(busy)return;action();previewKey='';refresh();status(`${{delete:'削除',left:'左回転',right:'右回転',undo:'Undo',redo:'Redo'}[id]}しました。`);};
@@ -129,7 +129,28 @@ $('image-delete').onclick=()=>{
   if(busy||activeTab!=='output'||!overlay.selected)return;
   model.removeImage(model.active,overlay.selected);overlay.choose(null);previewKey='';refresh();status('選択オブジェクトを削除しました。');
 };
-$('zoom').onchange=()=>{zoom=$('zoom').value;$('view-scale').textContent='表示：'+(zoom==='width'?'幅に合わせる':zoom==='fit'?'ページ全体':Math.round(Number(zoom)*100)+'%');preview(true);};
+function setZoom(value){
+  if(overlay.editing&&!overlay.finishTextEditing())return;
+  zoom=String(value);
+  const select=$('zoom');
+  select.querySelector('[data-wheel-zoom]')?.remove();
+  if(!Array.from(select.options).some(option=>option.value===zoom)){
+    const option=new Option(Math.round(Number(zoom)*100)+'%',zoom);
+    option.dataset.wheelZoom='true';select.add(option);
+  }
+  select.value=zoom;
+  $('view-scale').textContent='表示：'+(zoom==='width'?'幅に合わせる':zoom==='fit'?'ページ全体':Math.round(Number(zoom)*100)+'%');
+  preview(true);
+}
+$('zoom').onchange=()=>setZoom($('zoom').value);
+$('preview').addEventListener('wheel',event=>{
+  if(!event.ctrlKey)return;
+  event.preventDefault();
+  if(!event.deltaY||!$('preview').querySelector('.page-stage canvas'))return;
+  const stage=$('preview').querySelector('.page-stage');
+  const current=['width','fit'].includes(zoom)?(Number(stage.dataset.scale)||1):Number(zoom);
+  setZoom(Math.max(.25,Math.min(4,Math.round((current+(event.deltaY<0?.1:-.1))*100)/100)));
+},{passive:false});
 async function insertImage(file){
   if(activeTab!=='output'){status('画像は「編集結果」タブへ貼り付けてください。');return;}
   await run(async()=>{

@@ -59,7 +59,22 @@ try{
   await page.waitForFunction(()=>!document.querySelector('#open').disabled);
   await page.getByRole('button',{name:'既存文字: Voltage: 24V',exact:true}).click();
   await page.evaluate(()=>{globalThis.savedPageCard=document.querySelector('.page');globalThis.savedThumb=globalThis.savedPageCard.querySelector('canvas');});
-  assert.equal(await page.locator('#zoom').inputValue(),'width');
+  assert.equal(await page.locator('#zoom').inputValue(),'1');
+  await page.locator('#preview canvas').waitFor();
+  const initialWidth=await page.locator('#preview canvas').evaluate(canvas=>canvas.getBoundingClientRect().width);
+  await page.locator('#preview').hover();
+  await page.keyboard.down('Control');await page.mouse.wheel(0,-100);await page.keyboard.up('Control');
+  await page.waitForFunction(()=>document.querySelector('#zoom').value==='1.1');
+  await page.waitForFunction(width=>document.querySelector('#preview canvas')?.getBoundingClientRect().width>width,initialWidth);
+  await page.keyboard.down('Control');await page.mouse.wheel(0,100);await page.keyboard.up('Control');
+  await page.waitForFunction(()=>document.querySelector('#zoom').value==='1');
+  assert.equal(await page.evaluate(()=>window.devicePixelRatio),1,'Ctrl+wheel must not zoom the browser');
+  const controls=await page.evaluate(()=>{
+    const tabs=document.querySelector('.editor-tabs').getBoundingClientRect();
+    const actions=document.querySelector('.object-actions').getBoundingClientRect();
+    return {inside:actions.top>=tabs.top&&actions.bottom<=tabs.bottom,heading:document.querySelector('.preview-heading').getBoundingClientRect().height};
+  });
+  assert.ok(controls.inside,'object actions share the editor toolbar');assert.ok(controls.heading<=32);
   assert.equal(await page.locator('#pages').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),1);
   await page.locator('#existing-font').selectOption('times-new-roman');
   await page.locator('#existing-content').fill('Voltage: 12V');await page.locator('#existing-apply').click();
