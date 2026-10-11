@@ -76,6 +76,18 @@ try{
   });
   assert.ok(controls.inside,'object actions share the editor toolbar');assert.ok(controls.heading<=32);
   assert.equal(await page.locator('#pages').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),1);
+  await page.locator('#mirror-horizontal').click();
+  await page.locator('.pdf-size-menu summary').click();await page.locator('#pdf-size').fill('150');await page.locator('#pdf-size-apply').click();
+  await page.waitForFunction(()=>document.querySelector('.page-stage>canvas')?.style.width==='750px');
+  assert.equal(await page.locator('#zoom').inputValue(),'1','PDF size does not change viewing zoom');
+  const scaledDownload=page.waitForEvent('download');await page.locator('#save').click();await(await scaledDownload).saveAs('tests/output/standalone-scaled.pdf');
+  const scaledDoc=await PDFDocument.load(await readFile('tests/output/standalone-scaled.pdf'));
+  assert.equal(scaledDoc.getPage(0).getWidth(),750);assert.equal(scaledDoc.getPage(0).getHeight(),975);
+  assert.equal(scaledDoc.getPage(1).getWidth(),500,'unselected page retains its size');
+  await page.locator('#undo').click();await page.waitForFunction(()=>document.querySelector('.page-stage>canvas')?.style.width==='500px');
+  await page.locator('#undo').click();
+  await page.getByRole('button',{name:'既存文字: Voltage: 24V',exact:true}).click();
+  await page.evaluate(()=>{globalThis.savedPageCard=document.querySelector('.page');globalThis.savedThumb=globalThis.savedPageCard.querySelector('canvas');});
   await page.locator('#existing-font').selectOption('times-new-roman');
   await page.locator('#existing-content').fill('Voltage: 12V');await page.locator('#existing-apply').click();
   assert.ok(await page.evaluate(()=>globalThis.savedPageCard===document.querySelector('.page')&&globalThis.savedThumb===document.querySelector('.page canvas')));
@@ -88,7 +100,7 @@ try{
   await page.getByRole('button',{name:'既存文字: Edited box Second line',exact:true}).waitFor();
   await page.locator('#editor-tab-text').click();
   const options=await page.locator('#text-font option').evaluateAll(options=>options.map(option=>option.value));
-  assert.ok(options.includes('meiryo-ui'));assert.ok(options.includes('times-new-roman'));
+  assert.ok(options.includes('ms-mincho'));assert.ok(options.includes('meiryo-ui'));assert.ok(options.includes('times-new-roman'));
   assert.equal(await page.locator('#local-font-open, #existing-local-font-open, #local-font-dialog').count(),0);
   for(const id of options)for(const bold of [false,true]){
     await page.locator('.page-stage>canvas').click({position:{x:10,y:10}});
@@ -116,5 +128,5 @@ try{
   for(const id of options)for(const weight of ['Regular','Bold'])assert.ok(content.text.includes(`${id==='times-new-roman'?'English':'日本語'} ${id} ${weight}`));
   await page.screenshot({path:'tests/output/standalone-editor.png'});
   assert.deepEqual(remote,[],'no HTTP requests, even for PDF decoder assets');assert.deepEqual(extraFiles,[],'no sibling files read');assert.deepEqual(errors,[]);
-  console.log('PASS: isolated file:// HTML, offline, real Worker, Japanese CMaps, embedded WASM/fallback, 16 fonts including Meiryo UI and Times New Roman, existing edits/history, images/shapes, PDF save/render, theme/licenses; no external requests or console errors');
+  console.log('PASS: isolated file:// HTML, offline, real Worker, Japanese CMaps, embedded WASM/fallback, 18 font slots including MS Mincho, Meiryo UI and Times New Roman, existing edits/history, images/shapes, PDF save/render, theme/licenses; no external requests or console errors');
 }finally{await browser.close();}

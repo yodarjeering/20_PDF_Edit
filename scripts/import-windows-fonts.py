@@ -20,7 +20,18 @@ for filename, weight in [('times.ttf', 'Regular'), ('timesbd.ttf', 'Bold')]:
         if font['OS/2'].fsType & 0x0302:
             raise ValueError('Font embedding/subsetting is restricted')
     shutil.copyfile(source / filename, target / f'TimesNewRoman-{weight}.ttf')
-for family in ['MeiryoUI', 'TimesNewRoman']:
+collection = TTCollection(source / 'msmincho.ttc')
+try:
+    font = next(font for font in collection.fonts if font['name'].getDebugName(6) == 'MS-Mincho')
+    if font['OS/2'].fsType & 0x0302:
+        raise ValueError('Font embedding/subsetting is restricted')
+    # Windows supplies no separate bold face for MS Mincho. Both weight slots
+    # use the authentic regular face, without modifying the font outlines.
+    for weight in ['Regular', 'Bold']:
+        font.save(target / f'MSMincho-{weight}.ttf')
+finally:
+    collection.close()
+for family in ['MeiryoUI', 'TimesNewRoman', 'MSMincho']:
     for weight in ['Regular', 'Bold']:
         binary = target / f'{family}-{weight}.ttf'
         encoded = base64.b64encode(binary.read_bytes()).decode('ascii')

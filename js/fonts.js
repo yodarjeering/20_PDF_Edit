@@ -7,6 +7,7 @@ export const fontCatalog=[
   {id:'zen-gothic',label:'Zen角ゴシック New',file:'ZenKakuGothicNew',extension:'ttf'},
   {id:'meiryo-ui',label:'Meiryo UI',file:'MeiryoUI',extension:'ttf',license:'Windows-Fonts-NOTICE.md'},
   {id:'times-new-roman',label:'Times New Roman',file:'TimesNewRoman',extension:'ttf',license:'Windows-Fonts-NOTICE.md'},
+  {id:'ms-mincho',label:'MS 明朝',file:'MSMincho',extension:'ttf',license:'Windows-Fonts-NOTICE.md'},
 ];
 export const defaultFontId='noto-sans';
 const loaded=new Map(),pending=new Map();

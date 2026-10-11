@@ -2,6 +2,15 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PageModel} from '../js/model.js';
 const pages=['a','b','c','d','e'].map((id,i)=>({id,sourceId:i<3?'A':'B',sourcePage:i<3?i+1:i-2,rotation:0}));
+test('page mirror and absolute PDF size retain history and copy independently',()=>{
+ const m=new PageModel();m.add(pages.slice(0,2));m.mirror('horizontal');m.resize(2);
+ assert.equal(m.pages[0].mirrorX,true);assert.equal(m.pages[0].pageScale,2);assert.equal(m.pages[1].pageScale,undefined);
+ m.paste([m.pages[0]]);m.mirror('vertical');m.resize(.5);
+ assert.equal(m.pages[0].pageScale,2);assert.equal(m.pages[1].pageScale,.5);assert.equal(m.pages[1].mirrorY,true);
+ m.undo();assert.equal(m.pages[1].pageScale,2);m.redo();assert.equal(m.pages[1].pageScale,.5);
+ m.mirror('horizontal');assert.equal(m.pages[1].mirrorX,false);
+ assert.throws(()=>m.resize(0));assert.throws(()=>m.resize(Infinity));
+});
 test('image edits preserve history and are independent on copied pages',()=>{
  const m=new PageModel();m.add(pages.slice(0,1));
  m.addImage('a',{id:'image',data:'data:image/png;base64,fixture',x:10,y:20,width:100,height:50});

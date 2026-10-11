@@ -9,3 +9,8 @@ preserved. This project does not grant font redistribution rights.
 
 Run scripts/import-windows-fonts.py with Python and fontTools to regenerate the
 TTF binaries and Base64 modules from the installed Windows font files.
+
+MS Mincho was extracted from this computer's msmincho.ttc on 2026-10-11.
+The Regular and Bold slots both contain the original MS-Mincho regular face;
+Windows does not supply a separate bold face. Original font name and copyright
+tables are preserved, with the same local-use and redistribution notice above.

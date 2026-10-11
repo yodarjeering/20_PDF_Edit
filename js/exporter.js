@@ -2,6 +2,7 @@ import {exportShape} from './shapes.js';
 import {drawTextBox} from './text.js';
 import {ensureTextFonts,textFont,fontKey} from './fonts.js';
 import {applyExistingTextEdits} from './existing-text-export.js';
+import {transformPage} from './page-transform.js';
 export async function exportPdf(pages,sources,resolver) {
   if(!pages.length)throw new Error('保存するページがありません。');
   const {PDFDocument,degrees}=globalThis.PDFLib;
@@ -22,7 +23,7 @@ export async function exportPdf(pages,sources,resolver) {
       const image=data.startsWith('data:image/png')?await output.embedPng(data):await output.embedJpg(data);
       page.drawImage(image,{x:item.x,y:item.y,width:item.width,height:item.height,rotate:degrees(item.angle||0)});
     }
-    page.setRotation(degrees(((page.getRotation().angle+ref.rotation)%360+360)%360));output.addPage(page);
+    transformPage(page,ref,globalThis.PDFLib);output.addPage(page);
   }
   return output.save();
 }

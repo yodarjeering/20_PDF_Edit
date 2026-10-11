@@ -147,6 +147,12 @@ body.file-over #preview { outline-color: var(--accent); }
 .image-object{z-index:2}
 
 /* Keep the editing controls compact so the page gets the available height. */
+.pdf-size-menu{position:relative;align-self:center;color:var(--text)}
+.pdf-size-menu summary{list-style:none;cursor:pointer;white-space:nowrap;border:1px solid var(--border);border-radius:7px;padding:6px 12px;background:var(--surface)}
+.pdf-size-menu summary::after{content:' ▾'}
+.pdf-size-fields{position:absolute;top:calc(100% + 6px);left:0;width:330px;max-width:80vw;z-index:20;padding:14px;display:grid;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 25px #0005}
+.pdf-size-fields input{width:75px;padding:5px;color:var(--text);background:var(--raised);border:1px solid var(--border);border-radius:5px}
+.pdf-size-fields small{color:var(--muted);line-height:1.6}
 header{height:48px;flex-shrink:0;padding:0 18px}
 nav{padding:6px 16px;flex-wrap:wrap;flex-shrink:0}
 nav button{padding:6px 12px}

@@ -14,6 +14,8 @@ export class PageModel {
   }
   remove() {this.change(()=>{const index=this.pages.findIndex(p=>p.id===this.active);this.pages=this.pages.filter(p=>!this.selected.has(p.id));this.active=this.pages[Math.min(Math.max(index,0),this.pages.length-1)]?.id??null;this.selected=new Set(this.active?[this.active]:[]);this.anchor=this.active;});}
   rotate(delta) {this.change(()=>{this.pages=this.pages.map(p=>this.selected.has(p.id)?{...p,rotation:normalizeRotation(p.rotation+delta)}:p);});}
+  mirror(axis) {if(!['horizontal','vertical'].includes(axis))throw new Error('反転方向が無効です。');const key=axis==='horizontal'?'mirrorX':'mirrorY';this.change(()=>{this.pages=this.pages.map(p=>this.selected.has(p.id)?{...p,[key]:!p[key]}:p);});}
+  resize(scale) {if(!Number.isFinite(scale)||scale<.1||scale>10)throw new Error('PDFサイズは10〜1000%で指定してください。');this.change(()=>{this.pages=this.pages.map(p=>this.selected.has(p.id)?{...p,pageScale:scale}:p);});}
   move(ids,beforeId=null) {this.change(()=>{const set=new Set(ids);if(set.has(beforeId))return;const moving=this.pages.filter(p=>set.has(p.id));const rest=this.pages.filter(p=>!set.has(p.id));const index=beforeId===null?rest.length:rest.findIndex(p=>p.id===beforeId);if(index<0)return;rest.splice(index,0,...moving);this.pages=rest;});}
   undo(){if(!this.past.length)return;this.future.push(this.snapshot());this.restore(this.past.pop());}
   addImage(pageId,image) {this.change(()=>{this.pages=this.pages.map(page=>page.id===pageId?{...page,images:[...(page.images||[]),image]}:page);});}

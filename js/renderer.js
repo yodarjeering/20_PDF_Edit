@@ -6,9 +6,12 @@ export class PdfRenderer {
     try{
     if(!canvas.isConnected)return;
     const rotation=((page.rotate+ref.rotation)%360+360)%360;
-    const base=page.getViewport({scale:1,rotation});
-    const scale=fixedScale??Math.min(maxWidth/base.width,maxHeight/base.height);
+    const pageScale=ref.pageScale||1;
+    const base=page.getViewport({scale:pageScale,rotation});
+    const scale=(fixedScale??Math.min(maxWidth/base.width,maxHeight/base.height))*pageScale;
     const viewport=page.getViewport({scale,rotation});
+    if(ref.mirrorX){viewport.transform[0]*=-1;viewport.transform[2]*=-1;viewport.transform[4]=viewport.width-viewport.transform[4];}
+    if(ref.mirrorY){viewport.transform[1]*=-1;viewport.transform[3]*=-1;viewport.transform[5]=viewport.height-viewport.transform[5];}
     const ratio=Math.min(devicePixelRatio||1,2,Math.sqrt(16000000/(viewport.width*viewport.height)));
     canvas.width=Math.ceil(viewport.width*ratio);canvas.height=Math.ceil(viewport.height*ratio);
     canvas.style.width=viewport.width+'px';canvas.style.height=viewport.height+'px';
